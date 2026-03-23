@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
 import { PWAProvider } from "@/components/pwa/pwa-provider"
 
-const inter = Inter({ subsets: ["latin"] })
+// 使用系统字体栈，避免 Google Fonts 加载问题
+const fontStack = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
 
 export const metadata: Metadata = {
   title: "Athlete Insight - AI 运动表现分析",
@@ -16,11 +16,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
     ],
     apple: [
-      { url: "/icons/icon-192x192.png" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
     ],
   },
 }
@@ -40,7 +39,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>
+      <body className="font-sans antialiased" style={{ fontFamily: fontStack }}>
         <PWAProvider>
           {children}
         </PWAProvider>
