@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Performance Lab Color System */
+    --bg-primary: #0B0D12;
+    --bg-secondary: #11141B;
+    --bg-tertiary: #161A22;
+    --bg-elevated: #1A1F29;
+    
+    --text-primary: #E8E8E8;
+    --text-secondary: #9CA3AF;
+    --text-tertiary: #6B7280;
+    --text-muted: #4B5563;
+    
+    --line-default: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.12);
+    --line-accent: rgba(204, 255, 0, 0.3);
+    
+    /* One Violent Accent - Acid Yellow/Green */
+    --accent: #CCFF00;
+    --accent-dim: rgba(204, 255, 0, 0.15);
+    --accent-glow: rgba(204, 255, 0, 0.4);
+    
+    /* Functional Colors */
+    --positive: #CCFF00;
+    --warning: #F59E0B;
+    --negative: #EF4444;
+    --info: #00D4FF;
+    
+    /* Spacing Scale */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+    --space-4xl: 96px;
+    
+    /* Typography Scale */
+    --text-hero: 96px;
+    --text-display: 64px;
+    --text-headline: 48px;
+    --text-title: 32px;
+    --text-subtitle: 24px;
+    --text-body: 16px;
+    --text-caption: 12px;
+    --text-micro: 10px;
+    
+    --radius: 2px;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-[var(--line-default)];
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased;
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+  
+  /* Selection */
+  ::selection {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+
+@layer components {
+  /* Performance Lab Panel */
+  .panel {
+    @apply bg-[var(--bg-secondary)] border border-[var(--line-default)];
+  }
+  
+  .panel-elevated {
+    @apply bg-[var(--bg-tertiary)] border border-[var(--line-strong)];
+  }
+  
+  /* Data Display - Large Numbers */
+  .display-number {
+    @apply font-mono font-bold tracking-tighter;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Accent Glow Effect */
+  .accent-glow {
+    box-shadow: 0 0 40px var(--accent-glow);
+  }
+  
+  /* Performance Strip */
+  .performance-strip {
+    @apply flex items-center justify-between py-4 border-b border-[var(--line-default)];
+  }
+  
+  /* Editorial Title */
+  .editorial-title {
+    @apply text-[10px] font-bold tracking-[0.2em] uppercase text-[var(--text-tertiary)];
+  }
+  
+  /* Subtle Grid Background */
+  .grid-bg {
+    background-image: 
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  
+  /* Data Texture */
+  .data-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+  }
+  
+  /* Focus States */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-1 focus:ring-[var(--accent)] focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)];
+  }
+  
+  /* Transitions */
+  .transition-sharp {
+    @apply transition-all duration-150 ease-out;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+  }
+  
+  /* Accent Gradient Text */
+  .accent-text {
+    @apply text-[var(--accent)];
+    text-shadow: 0 0 20px var(--accent-glow);
+  }
+  
+  /* Vertical Rhythm */
+  .rhythm-tight > * + * {
+    margin-top: var(--space-sm);
+  }
+  
+  .rhythm-normal > * + * {
+    margin-top: var(--space-md);
+  }
+  
+  .rhythm-loose > * + * {
+    margin-top: var(--space-xl);
+  }
+}
