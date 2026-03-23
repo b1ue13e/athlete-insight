@@ -12,6 +12,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Capacitor 需要静态导出
+  output: 'export',
+  distDir: 'dist',
+  // 动态路由静态化
+  trailingSlash: true,
 }
 
 module.exports = nextConfig
