@@ -5,6 +5,7 @@
 
 'use client';
 
+import NextImage from 'next/image';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { toPng } from 'html-to-image';
@@ -316,6 +317,8 @@ export function PlayerCardV2({ data, playerImage, onImageUpload }: PlayerCardV2P
 
   // 初始化埋点
   useEffect(() => {
+    const startedAt = customizationStartTime.current;
+
     track('CARD_GENERATION_STARTED', {
       source: 'dashboard',
       sport_type: 'volleyball',
@@ -329,10 +332,10 @@ export function PlayerCardV2({ data, playerImage, onImageUpload }: PlayerCardV2P
         tier_selected: data.tier,
         stats_modified: false,
         theme_changed: false,
-        time_spent_ms: Date.now() - customizationStartTime.current,
+        time_spent_ms: Date.now() - startedAt,
       });
     };
-  }, []);
+  }, [data.tier, track]);
 
   return (
     <>
@@ -397,10 +400,13 @@ export function PlayerCardV2({ data, playerImage, onImageUpload }: PlayerCardV2P
           {/* 照片区域 */}
           <div className="relative h-80 bg-zinc-900/50">
             {croppedImage ? (
-              <img
+              <NextImage
                 src={croppedImage}
                 alt={data.name}
-                className="w-full h-full object-cover"
+                fill
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 448px"
+                className="object-cover"
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center space-y-4">

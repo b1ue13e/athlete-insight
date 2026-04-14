@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -163,16 +163,7 @@ export default function GymAnalysisPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
-  const weeklyPreview = useMemo(() => {
-    if (!report) return null
-    try { return analyzeGymWeeklyBlock([buildInput()]) } catch { return null }
-  }, [report])
-
-  function updateExercise(index: number, patch: Partial<ExerciseDraft>) {
-    setExercises((current) => current.map((exercise, i) => i === index ? { ...exercise, ...patch } : exercise))
-  }
-
-  function buildInput(): GymSessionInput {
+  const buildInput = useCallback((): GymSessionInput => {
     const parsed = exercises.map(buildExercise).filter((exercise) => exercise.exerciseName.length > 0)
     if (parsed.length === 0) throw new Error("至少填写一个动作，报告才有判断基础。")
     return {
@@ -188,6 +179,15 @@ export default function GymAnalysisPage() {
       sleepQuality: sleepQuality ? Number(sleepQuality) : undefined,
       source: "manual",
     }
+  }, [durationMin, exercises, goalType, perceivedFatigue, sessionDate, sessionTag, sleepQuality, soreness, splitType])
+
+  const weeklyPreview = useMemo(() => {
+    if (!report) return null
+    try { return analyzeGymWeeklyBlock([buildInput()]) } catch { return null }
+  }, [buildInput, report])
+
+  function updateExercise(index: number, patch: Partial<ExerciseDraft>) {
+    setExercises((current) => current.map((exercise, i) => i === index ? { ...exercise, ...patch } : exercise))
   }
 
   function handleAnalyze() {

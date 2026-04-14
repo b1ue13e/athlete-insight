@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "react/jsx-no-comment-textnodes": "off",
+    "react/no-unescaped-entities": "off"
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "dist/**",
+    "node_modules/**",
+    ".agents/**",
+    ".claude/**",
+    ".kiro/**",
+    ".trae/**"
+  ]
+}

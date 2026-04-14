@@ -6,6 +6,7 @@
 
 'use client';
 
+import Image from 'next/image';
 import { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, Check, X, Loader2, RefreshCw } from 'lucide-react';
 
@@ -124,11 +125,16 @@ export function RosterOCR({ onPlayersDetected }: RosterOCRProps) {
         <div className="space-y-4">
           {/* 预览图 */}
           <div className="relative">
-            <img 
-              src={capturedImage} 
-              alt="Captured roster" 
-              className="w-full h-48 object-cover rounded-xl"
-            />
+            <div className="relative h-48 w-full overflow-hidden rounded-xl">
+              <Image
+                src={capturedImage}
+                alt="Captured roster"
+                fill
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 448px"
+                className="object-cover"
+              />
+            </div>
             {isProcessing && (
               <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center">
                 <div className="text-center">

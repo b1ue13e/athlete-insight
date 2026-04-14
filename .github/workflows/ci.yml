@@ -24,7 +24,7 @@ jobs:
         run: npm ci
         
       - name: Run linter
-        run: npm run lint || echo "No lint script configured"
+        run: npm run lint
         
       - name: Run TypeScript type check
         run: npm run typecheck

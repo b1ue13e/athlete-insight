@@ -6,16 +6,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Capacitor 需要静态导出
-  output: 'export',
-  distDir: 'dist',
-  // 动态路由静态化
+  // Capacitor requires a static export build.
+  output: "export",
+  distDir: "dist",
+  // Trailing slashes keep exported routes working on static hosts.
   trailingSlash: true,
 }
 

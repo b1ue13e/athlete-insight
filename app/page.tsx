@@ -1,85 +1,67 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, User, ChevronRight, FileText, BarChart3, Activity, LogOut, Zap } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+import { Activity, BarChart3, ChevronRight, FileText, LogOut, Plus, User, Zap } from "lucide-react"
 import { InstallPrompt, IOSInstallHint } from "@/components/pwa/install-prompt"
+import { useAuth } from "@/contexts/auth-context"
+import { AthleteProfile, AthleteReportSummary, getAllReports, getAthletes, getAthleteStats } from "@/lib/athletes"
 import { cn } from "@/lib/utils"
-import { AthleteProfile, getAthletes, getAthleteStats } from "@/lib/athletes"
-
-interface ReportSummary {
-  id: string
-  athleteId: string
-  athleteName: string
-  createdAt: string
-  overallScore: number
-  verdict: string
-}
 
 export default function HomePage() {
   const { user, isAuthenticated, logout } = useAuth()
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
-  const [reports, setReports] = useState<ReportSummary[]>([])
+  const [reports, setReports] = useState<AthleteReportSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // 加载运动员
     const loadedAthletes = getAthletes()
+    const storedReports = getAllReports()
+      .slice()
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
     setAthletes(loadedAthletes)
-    
-    // 加载报告
-    const storedReports = JSON.parse(localStorage.getItem("athlete_reports") || "[]")
-    // 按时间倒序
-    storedReports.sort((a: any, b: any) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-    setReports(storedReports.slice(0, 10)) // 最近10条
-    
+    setReports(storedReports.slice(0, 10))
     setIsLoading(false)
   }, [])
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/80 backdrop-blur-sm border-b border-[var(--line-default)]">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[var(--line-default)] bg-[var(--bg-primary)]/80 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border border-[var(--accent)] flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 text-[var(--accent)]" />
+            <div className="flex h-8 w-8 items-center justify-center border border-[var(--accent)]">
+              <BarChart3 className="h-4 w-4 text-[var(--accent)]" />
             </div>
-            <span className="text-sm font-bold tracking-wider text-[var(--text-primary)]">
-              ATHLETE INSIGHT
-            </span>
+            <span className="text-sm font-bold tracking-wider text-[var(--text-primary)]">ATHLETE INSIGHT</span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <>
-                <span className="text-sm text-[var(--text-muted)]">
-                  {user?.displayName || user?.email}
-                </span>
+                <span className="text-sm text-[var(--text-muted)]">{user?.displayName || user?.email}</span>
                 <button
+                  type="button"
                   onClick={logout}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-sharp"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-muted)] transition-sharp hover:text-[var(--text-primary)]"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="h-4 w-4" />
                   退出
                 </button>
               </>
             ) : (
               <Link
                 href="/auth/login"
-                className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-sharp"
+                className="text-sm text-[var(--text-muted)] transition-sharp hover:text-[var(--accent)]"
               >
                 登录
               </Link>
             )}
             <Link
               href="/analysis/new"
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-primary)] text-sm font-bold hover:opacity-90 transition-sharp"
+              className="flex items-center gap-2 bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--bg-primary)] transition-sharp hover:opacity-90"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               新建分析
             </Link>
           </div>
@@ -87,126 +69,73 @@ export default function HomePage() {
       </header>
 
       <main className="pt-14">
-        {/* Hero Section */}
-        <section className="pt-16 pb-12 px-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="editorial-title mb-4 text-[var(--accent)]">
-              Performance Lab
-            </div>
-            <h1 className="text-4xl lg:text-6xl font-bold tracking-tight text-[var(--text-primary)] mb-6">
+        <section className="px-6 pb-12 pt-16">
+          <div className="mx-auto max-w-7xl">
+            <div className="editorial-title mb-4 text-[var(--accent)]">Performance Lab</div>
+            <h1 className="mb-6 text-4xl font-bold tracking-tight text-[var(--text-primary)] lg:text-6xl">
               运动员表现分析
             </h1>
-            <p className="text-[var(--text-secondary)] text-lg max-w-2xl">
-              基于比赛数据生成专业分析报告，帮助你客观评估表现、发现问题、制定训练计划。
+            <p className="max-w-2xl text-lg text-[var(--text-secondary)]">
+              基于比赛与训练数据生成专业分析报告，帮助你客观评估表现、发现问题，并制定下一步训练计划。
             </p>
           </div>
         </section>
 
-        {/* 快速操作 */}
         <section className="px-6 pb-12">
-          <div className="max-w-7xl mx-auto">
+          <div className="mx-auto max-w-7xl">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Link
+              <QuickEntry
                 href="/analysis/new"
-                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                      排球分析
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)] mt-2">
-                      比赛表现分析报告，快速或专业模式
-                    </p>
-                  </div>
-                  <Plus className="w-6 h-6 text-[var(--accent)]" />
-                </div>
-              </Link>
-              
-              <Link
+                title="排球分析"
+                description="比赛表现分析报告，支持快速模式和专业模式。"
+                icon={<Plus className="h-6 w-6 text-[var(--accent)]" />}
+              />
+              <QuickEntry
                 href="/running"
-                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                      跑步训练
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)] mt-2">
-                      判断训练是否练对，周视角管理进步
-                    </p>
-                  </div>
-                  <Activity className="w-6 h-6 text-[var(--accent)]" />
-                </div>
-              </Link>
-
-              <Link
+                title="跑步训练"
+                description="判断是否练对了，并从周视角管理训练进步。"
+                icon={<Activity className="h-6 w-6 text-[var(--accent)]" />}
+              />
+              <QuickEntry
                 href="/gym"
-                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                      健身训练
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)] mt-2">
-                      判断训练有没有练到点上，识别结构偏差与失衡
-                    </p>
-                  </div>
-                  <Zap className="w-6 h-6 text-[var(--accent)]" />
-                </div>
-              </Link>
-              
-              <Link
+                title="健身训练"
+                description="识别训练结构偏差、疲劳风险和是否真正练到点上。"
+                icon={<Zap className="h-6 w-6 text-[var(--accent)]" />}
+              />
+              <QuickEntry
                 href="/athletes"
-                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                      管理运动员
-                    </div>
-                    <p className="text-sm text-[var(--text-muted)] mt-2">
-                      查看档案、统计趋势、历史报告
-                    </p>
-                  </div>
-                  <User className="w-6 h-6 text-[var(--accent)]" />
-                </div>
-              </Link>
+                title="管理运动员"
+                description="查看档案、训练趋势和历史报告。"
+                icon={<User className="h-6 w-6 text-[var(--accent)]" />}
+              />
             </div>
           </div>
         </section>
 
-        {/* 运动员列表 */}
         <section className="px-6 pb-12">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                运动员档案
-              </h2>
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">运动员档案</h2>
               <Link
                 href="/athletes"
-                className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-sharp"
+                className="text-sm text-[var(--text-muted)] transition-sharp hover:text-[var(--accent)]"
               >
                 查看全部 →
               </Link>
             </div>
-            
+
             {isLoading ? (
               <div className="text-[var(--text-muted)]">加载中...</div>
             ) : athletes.length === 0 ? (
-              <div className="p-8 border border-dashed border-[var(--line-strong)] text-center">
-                <User className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-3" />
+              <div className="border border-dashed border-[var(--line-strong)] p-8 text-center">
+                <User className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
                 <p className="text-[var(--text-muted)]">还没有运动员档案</p>
-                <Link
-                  href="/analysis/new"
-                  className="text-[var(--accent)] text-sm mt-2 inline-block hover:underline"
-                >
+                <Link href="/analysis/new" className="mt-2 inline-block text-sm text-[var(--accent)] hover:underline">
                   创建第一个分析 →
                 </Link>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {athletes.map((athlete) => (
                   <AthleteCard key={athlete.id} athlete={athlete} />
                 ))}
@@ -215,30 +144,20 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 最近报告 */}
         <section className="px-6 pb-16">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                最近报告
-              </h2>
-              {reports.length > 0 && (
-                <span className="text-sm text-[var(--text-muted)]">
-                  共 {reports.length} 份
-                </span>
-              )}
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">最近报告</h2>
+              {reports.length > 0 ? <span className="text-sm text-[var(--text-muted)]">共 {reports.length} 份</span> : null}
             </div>
-            
+
             {isLoading ? (
               <div className="text-[var(--text-muted)]">加载中...</div>
             ) : reports.length === 0 ? (
-              <div className="p-8 border border-dashed border-[var(--line-strong)] text-center">
-                <FileText className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-3" />
+              <div className="border border-dashed border-[var(--line-strong)] p-8 text-center">
+                <FileText className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
                 <p className="text-[var(--text-muted)]">还没有分析报告</p>
-                <Link
-                  href="/analysis/new"
-                  className="text-[var(--accent)] text-sm mt-2 inline-block hover:underline"
-                >
+                <Link href="/analysis/new" className="mt-2 inline-block text-sm text-[var(--accent)] hover:underline">
                   开始第一次分析 →
                 </Link>
               </div>
@@ -251,8 +170,7 @@ export default function HomePage() {
             )}
           </div>
         </section>
-        
-        {/* PWA 安装提示 */}
+
         <InstallPrompt />
         <IOSInstallHint />
       </main>
@@ -260,92 +178,112 @@ export default function HomePage() {
   )
 }
 
-// 运动员卡片
+function QuickEntry({
+  href,
+  title,
+  description,
+  icon,
+}: {
+  href: string
+  title: string
+  description: string
+  icon: ReactNode
+}) {
+  return (
+    <Link href={href} className="group border border-[var(--line-default)] p-6 transition-sharp hover:border-[var(--accent)]">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-xl font-bold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
+            {title}
+          </div>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">{description}</p>
+        </div>
+        {icon}
+      </div>
+    </Link>
+  )
+}
+
 function AthleteCard({ athlete }: { athlete: AthleteProfile }) {
   const stats = getAthleteStats(athlete.id)
-  
+
   return (
     <Link
       href={`/athletes/${athlete.id}`}
-      className="group p-5 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
+      className="group border border-[var(--line-default)] p-5 transition-sharp hover:border-[var(--accent)]"
     >
-      <div className="flex items-start justify-between mb-4">
+      <div className="mb-4 flex items-start justify-between">
         <div>
-          <div className="font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
+          <div className="font-bold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
             {athlete.name}
           </div>
-          <div className="text-sm text-[var(--text-muted)] mt-1">
+          <div className="mt-1 text-sm text-[var(--text-muted)]">
             {athlete.position}
-            {athlete.team && ` // ${athlete.team}`}
+            {athlete.team ? ` // ${athlete.team}` : ""}
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-sharp" />
+        <ChevronRight className="h-5 w-5 text-[var(--text-muted)] transition-sharp group-hover:text-[var(--accent)]" />
       </div>
-      
+
       {stats.totalReports > 0 ? (
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--line-default)]">
+        <div className="grid grid-cols-2 gap-4 border-t border-[var(--line-default)] pt-4">
           <div>
-            <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)]">
-              报告数
-            </div>
-            <div className="text-lg font-bold text-[var(--text-primary)]">
-              {stats.totalReports}
-            </div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">报告数</div>
+            <div className="text-lg font-bold text-[var(--text-primary)]">{stats.totalReports}</div>
           </div>
           <div>
-            <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)]">
-              平均分
-            </div>
-            <div className={cn(
-              "text-lg font-bold",
-              stats.averageScore >= 70 ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
-            )}>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-muted)]">平均分</div>
+            <div
+              className={cn(
+                "text-lg font-bold",
+                stats.averageScore >= 70 ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
+              )}
+            >
               {stats.averageScore}
             </div>
           </div>
         </div>
       ) : (
-        <div className="text-sm text-[var(--text-muted)] pt-4 border-t border-[var(--line-default)]">
-          暂无分析报告
-        </div>
+        <div className="border-t border-[var(--line-default)] pt-4 text-sm text-[var(--text-muted)]">暂无分析报告</div>
       )}
     </Link>
   )
 }
 
-// 报告行
-function ReportRow({ report }: { report: ReportSummary }) {
+function ReportRow({ report }: { report: AthleteReportSummary }) {
   const date = new Date(report.createdAt).toLocaleDateString("zh-CN", {
     month: "short",
     day: "numeric",
   })
-  
+
   return (
     <Link
       href={`/analysis/${report.id}`}
-      className="group flex items-center justify-between p-4 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
+      className="group flex items-center justify-between border border-[var(--line-default)] p-4 transition-sharp hover:border-[var(--accent)]"
     >
       <div className="flex items-center gap-4">
-        <div className={cn(
-          "w-12 h-12 flex items-center justify-center border",
-          report.overallScore >= 70 
-            ? "border-[var(--accent)] text-[var(--accent)]" 
-            : "border-[var(--line-strong)] text-[var(--text-secondary)]"
-        )}>
+        <div
+          className={cn(
+            "flex h-12 w-12 items-center justify-center border",
+            report.overallScore >= 70
+              ? "border-[var(--accent)] text-[var(--accent)]"
+              : "border-[var(--line-strong)] text-[var(--text-secondary)]"
+          )}
+        >
           <span className="text-lg font-bold">{report.overallScore}</span>
         </div>
-        
+
         <div>
-          <div className="font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
+          <div className="font-medium text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
             {report.athleteName}
           </div>
           <div className="text-sm text-[var(--text-muted)]">
-            {report.verdict} // {date}
+            {report.verdict} · {date}
           </div>
         </div>
       </div>
-      
-      <ChevronRight className="w-5 h-5 text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-sharp" />
+
+      <ChevronRight className="h-5 w-5 text-[var(--text-muted)] transition-sharp group-hover:text-[var(--accent)]" />
     </Link>
   )
 }

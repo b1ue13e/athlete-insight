@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { getLatestDraft, deleteDraft, DraftData } from "@/lib/offline-storage"
 import { FileText, Clock, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -21,11 +21,7 @@ export function DraftRecoveryModal({
   const [draft, setDraft] = useState<DraftData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    checkDraft()
-  }, [athleteId])
-
-  const checkDraft = async () => {
+  const checkDraft = useCallback(async () => {
     try {
       const latestDraft = await getLatestDraft(athleteId)
       
@@ -44,7 +40,11 @@ export function DraftRecoveryModal({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [athleteId])
+
+  useEffect(() => {
+    void checkDraft()
+  }, [checkDraft])
 
   const handleContinue = () => {
     if (draft) {

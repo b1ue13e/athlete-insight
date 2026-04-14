@@ -27,8 +27,11 @@ export function ReportPageClient({ id }: { id: string }) {
         <div className="mx-auto max-w-2xl text-center">
           <AlertCircle className="mx-auto mb-4 h-12 w-12 text-[#7C7E84]" />
           <h1 className="text-2xl font-semibold">报告不存在</h1>
-          <p className="mt-2 text-[#7C7E84]">这份历史报告可能已被删除。</p>
-          <Link href="/history" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#CCFF00] px-5 py-3 font-semibold text-[#0B0D12]">
+          <p className="mt-2 text-[#7C7E84]">这份历史报告可能已经被删除。</p>
+          <Link
+            href="/history"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#CCFF00] px-5 py-3 font-semibold text-[#0B0D12]"
+          >
             <ArrowLeft className="h-4 w-4" />
             返回历史记录
           </Link>
@@ -54,10 +57,15 @@ export function ReportPageClient({ id }: { id: string }) {
 
   const shareReport = async () => {
     const text = `${report.athleteName} - ${report.matchName}\n总分：${report.overview.overallScore}\n结论：${report.overview.verdict}`
+
     if (navigator.share) {
-      await navigator.share({ title: `${report.athleteName} 表现报告`, text })
+      await navigator.share({
+        title: `${report.athleteName} 表现报告`,
+        text,
+      })
       return
     }
+
     await navigator.clipboard.writeText(text)
     window.alert("报告摘要已复制")
   }
@@ -78,10 +86,20 @@ export function ReportPageClient({ id }: { id: string }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={exportReport} className="rounded-full p-2 transition-colors hover:bg-white/5" title="导出">
+            <button
+              type="button"
+              onClick={exportReport}
+              className="rounded-full p-2 transition-colors hover:bg-white/5"
+              title="导出"
+            >
               <Download className="h-5 w-5 text-[#7C7E84]" />
             </button>
-            <button onClick={deleteReport} className="rounded-full p-2 transition-colors hover:bg-white/5" title="删除">
+            <button
+              type="button"
+              onClick={deleteReport}
+              className="rounded-full p-2 transition-colors hover:bg-white/5"
+              title="删除"
+            >
               <Trash2 className="h-5 w-5 text-[#FF6B6B]" />
             </button>
           </div>
@@ -95,7 +113,11 @@ export function ReportPageClient({ id }: { id: string }) {
               <p className="mt-2 text-lg">{report.overview.verdict}</p>
               <p className="mt-2 text-sm text-[#7C7E84]">{report.overview.summary}</p>
             </div>
-            <button onClick={shareReport} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#CCFF00] px-5 py-3 font-semibold text-[#0B0D12]">
+            <button
+              type="button"
+              onClick={shareReport}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#CCFF00] px-5 py-3 font-semibold text-[#0B0D12]"
+            >
               <Share2 className="h-4 w-4" />
               分享摘要
             </button>
