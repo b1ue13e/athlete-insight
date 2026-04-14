@@ -3,12 +3,9 @@ import "./globals.css"
 import { PWAProvider } from "@/components/pwa/pwa-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 
-// 使用系统字体栈，避免 Google Fonts 加载问题
-const fontStack = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
-
 export const metadata: Metadata = {
   title: "Athlete Insight - AI 运动表现分析",
-  description: "输入比赛或训练数据，自动生成结构化运动表现分析报告。看清你的优势、短板和下一步训练方向。",
+  description: "输入比赛或训练数据，自动生成结构化运动表现分析报告，帮助你看清优势、问题和下一步训练方向。",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -16,17 +13,13 @@ export const metadata: Metadata = {
     title: "Athlete Insight",
   },
   icons: {
-    icon: [
-      { url: "/icons/icon.svg", type: "image/svg+xml" },
-    ],
-    apple: [
-      { url: "/icons/icon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: "#CCFF00",
+  themeColor: "#c8ff2c",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -40,11 +33,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="font-sans antialiased" style={{ fontFamily: fontStack }}>
+      <body className="antialiased">
         <AuthProvider>
-          <PWAProvider>
-            {children}
-          </PWAProvider>
+          <PWAProvider>{children}</PWAProvider>
         </AuthProvider>
       </body>
     </html>
