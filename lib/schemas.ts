@@ -11,7 +11,7 @@ import { z } from "zod"
 
 // ============ 基础枚举 ============
 
-export const SportTypeSchema = z.enum(["volleyball", "running", "fitness"])
+export const SportTypeSchema = z.enum(["volleyball", "running", "fitness", "gym"])
 
 export const VolleyballPositionSchema = z.enum(["主攻", "副攻", "二传", "接应", "自由人"])
 

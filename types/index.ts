@@ -1,4 +1,4 @@
-export type SportType = "volleyball" | "running" | "fitness";
+export type SportType = "volleyball" | "running" | "fitness" | "gym";
 
 export type VolleyballPosition = "主攻" | "副攻" | "二传" | "接应" | "自由人";
 

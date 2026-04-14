@@ -3,18 +3,20 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Plus, User, ChevronRight, Zap, BarChart3 } from "lucide-react"
+import { ArrowLeft, Plus, User, ChevronRight, Zap, BarChart3, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { QuickModeForm } from "./quick-mode-form"
 import { ProfessionalModeForm } from "./professional-mode-form"
 import { AthleteProfile, getAthletes, getCurrentAthlete, setCurrentAthlete, createAthlete } from "@/lib/athletes"
 import { InputMode } from "@/types/input"
 
-type Step = "select-athlete" | "select-mode" | "input-data"
+type SportType = "volleyball" | "running" | "gym"
+type Step = "select-sport" | "select-athlete" | "select-mode" | "input-data"
 
 export default function NewAnalysisPage() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>("select-athlete")
+  const [step, setStep] = useState<Step>("select-sport")
+  const [sportType, setSportType] = useState<SportType>("volleyball")
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteProfile | null>(null)
   const [inputMode, setInputMode] = useState<InputMode>("quick")
@@ -57,7 +59,15 @@ export default function NewAnalysisPage() {
   }
 
   const handleContinue = () => {
-    if (step === "select-athlete" && selectedAthlete) {
+    if (step === "select-sport") {
+      if (sportType === "running") {
+        router.push("/analysis/new/running")
+      } else if (sportType === "gym") {
+        router.push("/analysis/new/gym")
+      } else {
+        setStep("select-athlete")
+      }
+    } else if (step === "select-athlete" && selectedAthlete) {
       setStep("select-mode")
     } else if (step === "select-mode") {
       setStep("input-data")
@@ -69,6 +79,8 @@ export default function NewAnalysisPage() {
       setStep("select-mode")
     } else if (step === "select-mode") {
       setStep("select-athlete")
+    } else if (step === "select-athlete") {
+      setStep("select-sport")
     }
   }
 
@@ -96,6 +108,7 @@ export default function NewAnalysisPage() {
           )}
           
           <div className="text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">
+            {step === "select-sport" && "选择运动类型"}
             {step === "select-athlete" && "选择运动员"}
             {step === "select-mode" && "选择录入模式"}
             {step === "input-data" && "录入数据"}
@@ -104,12 +117,186 @@ export default function NewAnalysisPage() {
       </nav>
 
       <main className="pt-14">
-        {/* 步骤 1：选择运动员 */}
-        {step === "select-athlete" && (
+        {/* 步骤 1：选择运动类型 */}
+        {step === "select-sport" && (
           <div className="min-h-[calc(100vh-56px)] flex flex-col">
             <section className="pt-16 pb-8 px-6">
               <div className="max-w-3xl mx-auto">
                 <div className="editorial-title mb-4">步骤 1 / 3</div>
+                <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-[var(--text-primary)] mb-4">
+                  选择运动类型
+                </h1>
+                <p className="text-[var(--text-secondary)] text-lg">
+                  你想分析哪种运动的表现？
+                </p>
+              </div>
+            </section>
+
+            <section className="flex-1 px-6 pb-16">
+              <div className="max-w-3xl mx-auto space-y-4">
+                {/* 排球 */}
+                <button
+                  onClick={() => setSportType("volleyball")}
+                  className={cn(
+                    "w-full group relative p-6 border text-left transition-sharp",
+                    sportType === "volleyball"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--line-default)] bg-transparent hover:border-[var(--line-strong)]"
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "w-12 h-12 flex items-center justify-center border transition-sharp",
+                      sportType === "volleyball"
+                        ? "border-[var(--accent)] text-[var(--accent)]"
+                        : "border-[var(--line-strong)] text-[var(--text-muted)]"
+                    )}>
+                      <BarChart3 className="w-6 h-6" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className={cn(
+                        "text-xl font-bold tracking-wide transition-sharp",
+                        sportType === "volleyball"
+                          ? "text-[var(--accent)]"
+                          : "text-[var(--text-primary)]"
+                      )}>
+                        排球分析
+                      </div>
+                      <div className="text-sm text-[var(--text-muted)] mt-2">
+                        比赛表现分析报告
+                      </div>
+                      <ul className="mt-3 space-y-1 text-sm text-[var(--text-secondary)]">
+                        <li>• 四维评分系统（得分/失误/稳定/关键分）</li>
+                        <li>• 位置感知评分</li>
+                        <li>• 优势、问题与训练建议</li>
+                      </ul>
+                    </div>
+                    
+                    <ChevronRight className={cn(
+                      "w-5 h-5 mt-2 transition-sharp",
+                      sportType === "volleyball"
+                        ? "text-[var(--accent)] translate-x-1"
+                        : "text-[var(--text-muted)]"
+                    )} />
+                  </div>
+                </button>
+
+                {/* 跑步 */}
+                <button
+                  onClick={() => setSportType("running")}
+                  className={cn(
+                    "w-full group relative p-6 border text-left transition-sharp",
+                    sportType === "running"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--line-default)] bg-transparent hover:border-[var(--line-strong)]"
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "w-12 h-12 flex items-center justify-center border transition-sharp",
+                      sportType === "running"
+                        ? "border-[var(--accent)] text-[var(--accent)]"
+                        : "border-[var(--line-strong)] text-[var(--text-muted)]"
+                    )}>
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className={cn(
+                        "text-xl font-bold tracking-wide transition-sharp",
+                        sportType === "running"
+                          ? "text-[var(--accent)]"
+                          : "text-[var(--text-primary)]"
+                      )}>
+                        跑步训练
+                      </div>
+                      <div className="text-sm text-[var(--text-muted)] mt-2">
+                        训练质量分析与周复盘
+                      </div>
+                      <ul className="mt-3 space-y-1 text-sm text-[var(--text-secondary)]">
+                        <li>• 四维评分（完成度/节奏/负荷/价值）</li>
+                        <li>• 训练偏差识别（轻松跑灰区/节奏跑崩盘等）</li>
+                        <li>• 周训练块管理与疲劳风险评估</li>
+                      </ul>
+                    </div>
+                    
+                    <ChevronRight className={cn(
+                      "w-5 h-5 mt-2 transition-sharp",
+                      sportType === "running"
+                        ? "text-[var(--accent)] translate-x-1"
+                        : "text-[var(--text-muted)]"
+                    )} />
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setSportType("gym")}
+                  className={cn(
+                    "w-full group relative p-6 border text-left transition-sharp",
+                    sportType === "gym"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--line-default)] bg-transparent hover:border-[var(--line-strong)]"
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "w-12 h-12 flex items-center justify-center border transition-sharp",
+                      sportType === "gym"
+                        ? "border-[var(--accent)] text-[var(--accent)]"
+                        : "border-[var(--line-strong)] text-[var(--text-muted)]"
+                    )}>
+                      <Zap className="w-6 h-6" />
+                    </div>
+
+                    <div className="flex-1">
+                      <div className={cn(
+                        "text-xl font-bold tracking-wide transition-sharp",
+                        sportType === "gym"
+                          ? "text-[var(--accent)]"
+                          : "text-[var(--text-primary)]"
+                      )}>
+                        健身训练
+                      </div>
+                      <div className="text-sm text-[var(--text-muted)] mt-2">
+                        训练质量诊断与结构失衡识别
+                      </div>
+                      <ul className="mt-3 space-y-1 text-sm text-[var(--text-secondary)]">
+                        <li>鈥?四维评分：完成度 / 刺激质量 / 负荷合理性 / 目标匹配度</li>
+                        <li>鈥?偏差诊断：主项缺失 / 推拉失衡 / 有效组不足 / 疲劳风险</li>
+                        <li>鈥?周训练块与中周期复盘</li>
+                      </ul>
+                    </div>
+
+                    <ChevronRight className={cn(
+                      "w-5 h-5 mt-2 transition-sharp",
+                      sportType === "gym"
+                        ? "text-[var(--accent)] translate-x-1"
+                        : "text-[var(--text-muted)]"
+                    )} />
+                  </div>
+                </button>
+
+                {/* 继续按钮 */}
+                <div className="mt-8">
+                  <button
+                    onClick={handleContinue}
+                    className="w-full py-4 bg-[var(--accent)] text-[var(--bg-primary)] font-bold tracking-wider uppercase hover:opacity-90 transition-sharp"
+                  >
+                    继续
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* 步骤 2：选择运动员 */}
+        {step === "select-athlete" && (
+          <div className="min-h-[calc(100vh-56px)] flex flex-col">
+            <section className="pt-16 pb-8 px-6">
+              <div className="max-w-3xl mx-auto">
+                <div className="editorial-title mb-4">步骤 2 / 3</div>
                 <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-[var(--text-primary)] mb-4">
                   选择运动员
                 </h1>
@@ -260,12 +447,12 @@ export default function NewAnalysisPage() {
           </div>
         )}
 
-        {/* 步骤 2：选择录入模式 */}
+        {/* 步骤 3：选择录入模式 */}
         {step === "select-mode" && (
           <div className="min-h-[calc(100vh-56px)] flex flex-col">
             <section className="pt-16 pb-8 px-6">
               <div className="max-w-3xl mx-auto">
-                <div className="editorial-title mb-4">步骤 2 / 3</div>
+                <div className="editorial-title mb-4">步骤 3 / 3</div>
                 <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-[var(--text-primary)] mb-4">
                   选择录入模式
                 </h1>
@@ -420,7 +607,7 @@ export default function NewAnalysisPage() {
                   </button>
                   <span className="text-[var(--line-strong)]">|</span>
                   <span className="text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">
-                    步骤 3 / 3
+                    录入数据
                   </span>
                 </div>
                 

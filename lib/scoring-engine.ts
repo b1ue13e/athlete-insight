@@ -554,23 +554,29 @@ export function calculateVolleyballScore(
   
   // 根据数据质量调整权重
   let adjustedOverallWeights = { ...weights.overall }
-  const totalConfidence = Object.values(dataQuality.dimensionConfidence).reduce((a, b) => a + b, 0)
+  const confidenceToWeightKey = {
+    scoring: "scoring_contribution",
+    error_control: "error_control",
+    stability: "stability",
+    clutch: "clutch_performance",
+  } as const
   
   for (const [dim, confidence] of Object.entries(dataQuality.dimensionConfidence)) {
     if (confidence < 0.5) {
       // 置信度低的维度，权重重新分配给其他维度
-      const weightReduction = adjustedOverallWeights[dim as keyof typeof adjustedOverallWeights] * (0.5 - confidence)
-      adjustedOverallWeights[dim as keyof typeof adjustedOverallWeights] -= weightReduction
+      const weightKey = confidenceToWeightKey[dim as keyof typeof confidenceToWeightKey]
+      const weightReduction = adjustedOverallWeights[weightKey] * (0.5 - confidence)
+      adjustedOverallWeights[weightKey] -= weightReduction
       
       // 把权重分配给高置信度维度
       const highConfDims = Object.entries(dataQuality.dimensionConfidence)
         .filter(([_, c]) => c >= 0.7)
-        .map(([d, _]) => d)
+        .map(([d, _]) => confidenceToWeightKey[d as keyof typeof confidenceToWeightKey])
       
       if (highConfDims.length > 0) {
         const bonusPerDim = weightReduction / highConfDims.length
         for (const highDim of highConfDims) {
-          adjustedOverallWeights[highDim as keyof typeof adjustedOverallWeights] += bonusPerDim
+          adjustedOverallWeights[highDim] += bonusPerDim
         }
       }
     }

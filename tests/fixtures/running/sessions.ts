@@ -1,0 +1,90 @@
+import type { RunningSessionInput } from "@/lib/scoring/running"
+
+type SessionOverrides = Partial<RunningSessionInput>
+
+export function buildRunningSession(overrides: SessionOverrides = {}): RunningSessionInput {
+  return {
+    id: "run-fixture",
+    date: "2026-04-14",
+    trainingType: "easy",
+    goalType: "half",
+    durationMin: 45,
+    distanceKm: 8,
+    avgPaceSec: 338,
+    splits: [340, 338, 337, 339, 341, 336, 337, 338],
+    avgHeartRate: 142,
+    maxHeartRate: 188,
+    heartRateSeries: [136, 140, 142, 144, 145, 143],
+    rpe: 4,
+    plannedDistance: 8,
+    plannedDuration: 45,
+    plannedPaceRange: { minSec: 330, maxSec: 350 },
+    plannedHeartRateRange: { min: 135, max: 150 },
+    source: "watch",
+    ...overrides,
+  }
+}
+
+export const runningRegressionFixtures = {
+  manualNoHeartRate: buildRunningSession({
+    id: "manual-no-hr",
+    source: "manual",
+    avgHeartRate: undefined,
+    maxHeartRate: undefined,
+    heartRateSeries: undefined,
+    telemetry: undefined,
+  }),
+  easyGrayZone: buildRunningSession({
+    id: "easy-gray-zone",
+    trainingType: "easy",
+    avgHeartRate: 164,
+    maxHeartRate: 190,
+    rpe: 7,
+    plannedHeartRateRange: { min: 135, max: 150 },
+  }),
+  tempoFrontLoaded: buildRunningSession({
+    id: "tempo-front-loaded",
+    trainingType: "tempo",
+    durationMin: 48,
+    distanceKm: 10,
+    avgPaceSec: 318,
+    splits: [300, 302, 306, 315, 327, 338, 346, 352, 356, 360],
+    avgHeartRate: 171,
+    maxHeartRate: 190,
+    rpe: 8,
+    plannedPaceRange: { minSec: 305, maxSec: 325 },
+  }),
+  intervalLateLoss: buildRunningSession({
+    id: "interval-late-loss",
+    trainingType: "interval",
+    durationMin: 52,
+    distanceKm: 9.5,
+    avgPaceSec: 262,
+    splits: [238, 240, 244, 252, 266, 276, 286, 292],
+    avgHeartRate: 178,
+    maxHeartRate: 192,
+    rpe: 9,
+  }),
+  longRunFade: buildRunningSession({
+    id: "long-run-fade",
+    trainingType: "long",
+    durationMin: 110,
+    distanceKm: 20,
+    avgPaceSec: 345,
+    splits: [330, 332, 334, 336, 338, 342, 348, 356, 366, 378, 390, 402],
+    avgHeartRate: 162,
+    maxHeartRate: 190,
+    rpe: 8,
+    plannedDistance: 22,
+    plannedDuration: 120,
+  }),
+  planShortfall: buildRunningSession({
+    id: "plan-shortfall",
+    trainingType: "tempo",
+    durationMin: 28,
+    distanceKm: 5.4,
+    avgPaceSec: 312,
+    plannedDistance: 8,
+    plannedDuration: 40,
+  }),
+}

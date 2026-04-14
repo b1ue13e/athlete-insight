@@ -1,361 +1,340 @@
 /**
- * 人工金标准 (Gold Standard) 标注系统
+ * 金标准数据采集协议 (Gold Standard Data Collection)
  * 
- * 用于验证系统输出与真人判断的一致性。
+ * 核心原则：$Y_{true}$ 必须极度标准化，不能是随口的"我觉得挺好"
  * 
- * 标注者只需回答5个简单问题：
- * 1. 整体表现等级 (高/中/低)
- * 2. 最大优点
- * 3. 最大问题
- * 4. 优先改进点
- * 5. 不应出现的标签
- * 
- * 然后系统自动对比分析。
+ * 采集流程：
+ * 1. 找到 4-6 场有完整录像的校队比赛
+ * 2. 让教练在不知道系统评分的情况下看完比赛
+ * 3. 强制教练输出三项指标：绝对评分、相对排序、核心痛点
+ * 4. 将系统评分与教练评分盲测对比
  */
 
-import { VolleyballFormData, ReportJSON } from "@/types"
-import { analyzeVolleyball } from "./mock-analysis"
-import { evaluationBenchmarks } from "./evaluation-benchmark"
+// ============ 金标准数据结构 ============
 
-// ============ 标注结构 ============
-
-export interface HumanAnnotation {
-  // 标注元信息
-  annotator_id: string
-  annotator_role: "coach" | "captain" | "player" | "expert"
-  annotation_date: string
-  
-  // 标注内容
-  overall_rating: "high" | "medium" | "low"
-  top_strength: string
-  top_weakness: string
-  priority_action: string
-  invalid_tags: string[]
-  
-  // 置信度
-  confidence: "high" | "medium" | "low"
-  notes?: string
-}
-
-export interface GoldStandardCase {
+export interface GoldStandardEntry {
+  // 标识信息
   id: string
-  input: VolleyballFormData
-  human_annotations: HumanAnnotation[]
-  // 聚合后的人工共识
-  consensus?: {
-    overall_rating: "high" | "medium" | "low"
-    top_strengths: string[]
-    top_weaknesses: string[]
-    priority_actions: string[]
-    confidence: number
+  matchId: string
+  matchName: string
+  matchDate: string
+  
+  // 球员信息
+  playerId: string
+  playerName: string
+  playerPosition: string
+  
+  // 教练评估 (盲测 - 教练填写)
+  coachEvaluation: {
+    coachId: string
+    coachName: string
+    evaluationDate: string
+    
+    // 1. 绝对评分 (0-100)
+    absoluteScore: number
+    
+    // 2. 相对排序 (1-N，同场比赛内)
+    rankInMatch: number
+    totalPlayersInMatch: number
+    
+    // 3. 核心痛点诊断 (一句话)
+    coreWeakness: string
+    
+    // 可选：亮点
+    coreStrength?: string
+    
+    // 教练置信度
+    coachConfidence: "high" | "medium" | "low"
+  }
+  
+  // 系统评分 (由系统计算)
+  systemScores: {
+    v1: {
+      overallScore: number
+      subScores: {
+        scoring: number
+        errorControl: number
+        stability: number
+        clutch: number
+      }
+      timestamp: string
+    }
+    v2: {
+      overallScore: number
+      confidenceInterval: [number, number]  // [lower, upper]
+      posteriorMean: number
+      driftDetected: boolean
+      timestamp: string
+    }
+  }
+  
+  // 录像信息
+  videoEvidence: {
+    videoUrl: string
+    startTime?: string  // 球员上场时间
+    endTime?: string
+    clips?: Array<{
+      timestamp: string
+      description: string
+      relevantTo: "weakness" | "strength"
+    }>
+  }
+  
+  // 快录数据
+  quickInput: {
+    inputBy: string
+    inputMethod: "mobile_app" | "voice" | "web"
+    rawData: Record<string, any>
+    timestamp: string
+  }
+  
+  // 元数据
+  metadata: {
+    createdAt: string
+    updatedAt: string
+    status: "pending" | "completed" | "disputed"
+    notes?: string
   }
 }
 
-export interface ValidationResult {
-  case_id: string
-  // 整体评分对比
-  rating_match: boolean
-  system_rating: "high" | "medium" | "low"
-  human_rating: "high" | "medium" | "low"
+// ============ 教练盲测表模板 ============
+
+export interface CoachBlindTestForm {
+  // 表头信息
+  formId: string
+  coachName: string
+  coachCredentials: string  // 执教年限、带队成绩等
+  evaluationDate: string
   
-  // 优点匹配
-  strength_match: boolean
-  system_strengths: string[]
-  human_strengths: string[]
+  // 比赛信息
+  matchName: string
+  opponent: string
+  matchDate: string
+  matchImportance: "training" | "friendly" | "league" | "playoff" | "final"
   
-  // 问题匹配
-  weakness_match: boolean
-  system_weaknesses: string[]
-  human_weaknesses: string[]
+  // 评估说明
+  instructions: string
   
-  // 建议可执行性
-  action_relevance: number // 0-1
+  // 球员评估列表
+  playerEvaluations: Array<{
+    playerId: string
+    playerName: string
+    playerPosition: string
+    jerseyNumber?: string
+    
+    // 评估项目
+    absoluteScore: number  // 0-100
+    rankInMatch: number    // 本场排名
+    coreWeakness: string   // 必须一句话
+    coreStrength?: string  // 可选
+    
+    // 置信度
+    confidence: "high" | "medium" | "low"
+    confidenceReason?: string
+  }>
   
-  // 标签合理性
-  invalid_tag_hits: string[] // 系统给出了人工认为不该出现的标签
+  // 整体评估
+  overallNotes?: string
   
-  // 综合一致性
-  consistency_score: number // 0-100
+  // 签名确认
+  coachSignature: string
+  completedAt: string
 }
 
-// ============ 人工标注数据集 ============
+// ============ 盲测表生成器 ============
 
-export const goldStandardDataset: GoldStandardCase[] = [
-  {
-    id: "GS001",
-    input: evaluationBenchmarks[0].input, // 高得分高失误型
-    human_annotations: [
-      {
-        annotator_id: "coach_001",
-        annotator_role: "coach",
-        annotation_date: "2026-03-23",
-        overall_rating: "medium",
-        top_strength: "进攻端威胁大，能下球",
-        top_weakness: "失误太多，尤其是发球",
-        priority_action: "先练发球稳定性，不要一味追求ACE",
-        invalid_tags: ["VB_DEFENSE_SOLID"], // 救球5个不该判防守扎实
-        confidence: "high",
-        notes: "典型的神经刀表现",
-      },
-    ],
-  },
-  {
-    id: "GS002",
-    input: evaluationBenchmarks[4].input, // 自由人
-    human_annotations: [
-      {
-        annotator_id: "coach_001",
-        annotator_role: "coach",
-        annotation_date: "2026-03-23",
-        overall_rating: "high",
-        top_strength: "一传稳，防守面积大",
-        top_weakness: "作为自由人基本没弱点",
-        priority_action: "保持状态",
-        invalid_tags: ["VB_SCORING_STRONG", "VB_ATTACK_EFFECTIVE"], // 自由人不该有进攻标签
-        confidence: "high",
-        notes: "标准自由人表现",
-      },
-    ],
-  },
-  {
-    id: "GS003",
-    input: evaluationBenchmarks[2].input, // 关键分弱
-    human_annotations: [
-      {
-        annotator_id: "captain_001",
-        annotator_role: "captain",
-        annotation_date: "2026-03-23",
-        overall_rating: "medium",
-        top_strength: "平时打得还可以",
-        top_weakness: "关键时刻手软，局末掉链子",
-        priority_action: "多练关键分，模拟压力场景",
-        invalid_tags: [],
-        confidence: "high",
-        notes: "心理层面问题",
-      },
-    ],
-  },
-  {
-    id: "GS004",
-    input: evaluationBenchmarks[5].input, // 全面低迷
-    human_annotations: [
-      {
-        annotator_id: "coach_001",
-        annotator_role: "coach",
-        annotation_date: "2026-03-23",
-        overall_rating: "low",
-        top_strength: "暂时想不出",
-        top_weakness: "全面被压制，什么都做不好",
-        priority_action: "回去先练基本功，这场先忘掉",
-        invalid_tags: ["VB_SCORING_STRONG"],
-        confidence: "high",
-        notes: "状态极差，可能身体或心理有问题",
-      },
-    ],
-  },
-  {
-    id: "GS005",
-    input: evaluationBenchmarks[7].input, // 稳定高效
-    human_annotations: [
-      {
-        annotator_id: "coach_001",
-        annotator_role: "coach",
-        annotation_date: "2026-03-23",
-        overall_rating: "high",
-        top_strength: "全面，稳定，没有明显短板",
-        top_weakness: "没有",
-        priority_action: "保持，可以尝试增加变化",
-        invalid_tags: [],
-        confidence: "high",
-        notes: "理想的校队主力表现",
-      },
-    ],
-  },
-]
+export function generateCoachBlindTestForm(
+  matchName: string,
+  opponent: string,
+  matchDate: string,
+  players: Array<{ id: string; name: string; position: string; jerseyNumber?: string }>,
+  coachName: string
+): CoachBlindTestForm {
+  return {
+    formId: `blind-${Date.now()}`,
+    coachName,
+    coachCredentials: "",  // 由教练填写
+    evaluationDate: new Date().toISOString().split("T")[0],
+    
+    matchName,
+    opponent,
+    matchDate,
+    matchImportance: "league",
+    
+    instructions: `
+【盲测说明】
+1. 请在观看完整场比赛录像后填写此表
+2. 绝对评分：基于你的执教经验，给每位球员打一个 0-100 的综合分
+3. 相对排序：给出本场球员的表现排名（1=最佳）
+4. 核心痛点：用一句话概括该球员本场最大的问题，必须具体可操作
+5. 置信度：你对这个评估的确定程度
 
-// ============ 验证逻辑 ============
-
-/**
- * 将系统总分映射为等级
- */
-function scoreToRating(score: number): "high" | "medium" | "low" {
-  if (score >= 75) return "high"
-  if (score >= 60) return "medium"
-  return "low"
+⚠️ 重要：
+- 不要参考任何外部评分系统
+- 基于你的直觉和经验判断
+- 如果某位球员出场时间太少，请标注"样本不足"
+    `.trim(),
+    
+    playerEvaluations: players.map((p, index) => ({
+      playerId: p.id,
+      playerName: p.name,
+      playerPosition: p.position,
+      jerseyNumber: p.jerseyNumber,
+      absoluteScore: 0,
+      rankInMatch: 0,
+      coreWeakness: "",
+      coreStrength: "",
+      confidence: "medium",
+      confidenceReason: ""
+    })),
+    
+    coachSignature: "",
+    completedAt: ""
+  }
 }
 
-/**
- * 检查文本相似度（简单实现）
- */
-function textSimilarity(text1: string, text2: string): number {
-  const keywords1 = text1.split(/[，。、\s]+/)
-  const keywords2 = text2.split(/[，。、\s]+/)
+// ============ 金标准数据收集 ============
+
+const GOLD_STANDARD_KEY = "athlete_insight_gold_standard"
+
+export function saveGoldStandard(entry: GoldStandardEntry): void {
+  if (typeof window === "undefined") return
   
-  const intersection = keywords1.filter(k => 
-    keywords2.some(k2 => k2.includes(k) || k.includes(k2))
+  const existing = JSON.parse(localStorage.getItem(GOLD_STANDARD_KEY) || "[]")
+  
+  // 检查是否已存在
+  const index = existing.findIndex((e: GoldStandardEntry) => 
+    e.matchId === entry.matchId && e.playerId === entry.playerId
   )
   
-  return intersection.length / Math.max(keywords1.length, keywords2.length)
+  if (index >= 0) {
+    existing[index] = entry
+  } else {
+    existing.push(entry)
+  }
+  
+  localStorage.setItem(GOLD_STANDARD_KEY, JSON.stringify(existing))
 }
 
-/**
- * 验证单个用例
- */
-export function validateCase(
-  caseData: GoldStandardCase,
-  systemReport: ReportJSON
-): ValidationResult {
-  // 获取人工共识（简化：取第一个标注）
-  const human = caseData.human_annotations[0]
+export function getAllGoldStandard(): GoldStandardEntry[] {
+  if (typeof window === "undefined") return []
+  return JSON.parse(localStorage.getItem(GOLD_STANDARD_KEY) || "[]")
+}
+
+export function getGoldStandardByMatch(matchId: string): GoldStandardEntry[] {
+  return getAllGoldStandard().filter(e => e.matchId === matchId)
+}
+
+export function exportGoldStandardData(): string {
+  const data = getAllGoldStandard()
+  return JSON.stringify(data, null, 2)
+}
+
+// ============ 数据录入辅助工具 ============
+
+export interface QuickInputForm {
+  matchName: string
+  matchDate: string
+  evaluator: string
   
-  // 系统评级
-  const systemRating = scoreToRating(systemReport.overview.overall_score)
+  players: Array<{
+    playerId: string
+    playerName: string
+    position: string
+    
+    // 快速输入字段
+    totalPoints: number
+    totalPointsLost: number
+    attackKills: number
+    attackErrors: number
+    serveAces: number
+    serveErrors: number
+    blockPoints: number
+    digs: number
+    
+    // 主观评估
+    receptionRating: "excellent" | "good" | "average" | "poor"
+    clutchRating: "excellent" | "good" | "average" | "poor"
+    
+    // 观察
+    topStrength: string
+    topWeakness: string
+  }>
+}
+
+export function createQuickInputFromVideo(
+  videoMetadata: {
+    matchName: string
+    matchDate: string
+    players: Array<{ id: string; name: string; position: string }>
+  },
+  evaluator: string
+): QuickInputForm {
+  return {
+    matchName: videoMetadata.matchName,
+    matchDate: videoMetadata.matchDate,
+    evaluator,
+    players: videoMetadata.players.map(p => ({
+      playerId: p.id,
+      playerName: p.name,
+      position: p.position,
+      totalPoints: 0,
+      totalPointsLost: 0,
+      attackKills: 0,
+      attackErrors: 0,
+      serveAces: 0,
+      serveErrors: 0,
+      blockPoints: 0,
+      digs: 0,
+      receptionRating: "average",
+      clutchRating: "average",
+      topStrength: "",
+      topWeakness: ""
+    }))
+  }
+}
+
+// ============ 数据导出格式 ============
+
+export interface GoldStandardExport {
+  exportDate: string
+  totalEntries: number
+  matches: string[]
+  coaches: string[]
+  entries: GoldStandardEntry[]
   
-  // 优点匹配
-  const systemStrengths = systemReport.strengths.map(s => s.title)
-  const strengthMatch = systemStrengths.some(s => 
-    textSimilarity(s, human.top_strength) > 0.3
-  )
+  // 统计摘要
+  summary: {
+    avgAbsoluteScore: number
+    scoreRange: [number, number]
+    confidenceDistribution: {
+      high: number
+      medium: number
+      low: number
+    }
+  }
+}
+
+export function exportForAnalysis(): GoldStandardExport {
+  const entries = getAllGoldStandard()
   
-  // 问题匹配
-  const systemWeaknesses = systemReport.weaknesses.map(w => w.title)
-  const weaknessMatch = systemWeaknesses.some(w => 
-    textSimilarity(w, human.top_weakness) > 0.3
-  )
-  
-  // 检查无效标签
-  const invalidTagHits = human.invalid_tags.filter(tag =>
-    systemReport.tags.includes(tag)
-  )
-  
-  // 建议相关性（检查建议是否包含人工指出的优先改进点关键词）
-  const systemActions = systemReport.recommendations.map(r => r.title + r.detail)
-  const actionRelevance = systemActions.some(a => 
-    textSimilarity(a, human.priority_action) > 0.2
-  ) ? 1 : 0
-  
-  // 计算综合一致性分数
-  let consistencyScore = 0
-  if (systemRating === human.overall_rating) consistencyScore += 40
-  if (strengthMatch) consistencyScore += 25
-  if (weaknessMatch) consistencyScore += 25
-  if (invalidTagHits.length === 0) consistencyScore += 10
+  const scores = entries.map(e => e.coachEvaluation.absoluteScore)
+  const confidences = entries.map(e => e.coachEvaluation.coachConfidence)
   
   return {
-    case_id: caseData.id,
-    rating_match: systemRating === human.overall_rating,
-    system_rating: systemRating,
-    human_rating: human.overall_rating,
-    strength_match: strengthMatch,
-    system_strengths: systemStrengths,
-    human_strengths: [human.top_strength],
-    weakness_match: weaknessMatch,
-    system_weaknesses: systemWeaknesses,
-    human_weaknesses: [human.top_weakness],
-    action_relevance: actionRelevance,
-    invalid_tag_hits: invalidTagHits,
-    consistency_score: consistencyScore,
-  }
-}
-
-/**
- * 运行全部验证
- */
-export function runGoldStandardValidation(): {
-  results: ValidationResult[]
-  summary: {
-    total_cases: number
-    rating_accuracy: number
-    strength_accuracy: number
-    weakness_accuracy: number
-    tag_validity: number
-    avg_consistency: number
-  }
-} {
-  const results = goldStandardDataset.map(caseData => {
-    const report = analyzeVolleyball(caseData.input)
-    return validateCase(caseData, report)
-  })
-  
-  const summary = {
-    total_cases: results.length,
-    rating_accuracy: results.filter(r => r.rating_match).length / results.length,
-    strength_accuracy: results.filter(r => r.strength_match).length / results.length,
-    weakness_accuracy: results.filter(r => r.weakness_match).length / results.length,
-    tag_validity: 1 - (results.reduce((acc, r) => acc + r.invalid_tag_hits.length, 0) / 
-                      results.reduce((acc, r) => acc + r.system_weaknesses.length, 0)),
-    avg_consistency: results.reduce((acc, r) => acc + r.consistency_score, 0) / results.length,
-  }
-  
-  return { results, summary }
-}
-
-/**
- * 生成验证报告
- */
-export function generateValidationReport(): string {
-  const { results, summary } = runGoldStandardValidation()
-  
-  let report = `
-========== 人工金标准验证报告 ==========
-验证时间: ${new Date().toISOString()}
-样本数: ${summary.total_cases}
-
-【一致性指标】
-整体评级准确率: ${(summary.rating_accuracy * 100).toFixed(1)}%
-优点识别准确率: ${(summary.strength_accuracy * 100).toFixed(1)}%
-问题识别准确率: ${(summary.weakness_accuracy * 100).toFixed(1)}%
-标签合理性: ${(summary.tag_validity * 100).toFixed(1)}%
-平均一致度: ${summary.avg_consistency.toFixed(1)}/100
-
-【详细对比】
-`
-  
-  results.forEach(r => {
-    report += `
-[${r.case_id}]
-评级: 系统[${r.system_rating}] vs 人工[${r.human_rating}] ${r.rating_match ? "✅" : "❌"}
-优点: ${r.strength_match ? "✅" : "❌"} 系统(${r.system_strengths.join(", ")}) vs 人工(${r.human_strengths.join(", ")})
-问题: ${r.weakness_match ? "✅" : "❌"} 系统(${r.system_weaknesses.join(", ")}) vs 人工(${r.human_weaknesses.join(", ")})
-无效标签: ${r.invalid_tag_hits.length > 0 ? "⚠️ " + r.invalid_tag_hits.join(", ") : "✅ 无"}
-一致度: ${r.consistency_score}/100
-`
-  })
-  
-  report += `
-========== 总结 ==========
-${summary.avg_consistency >= 70 ? "✅ 系统表现良好，与人工判断高度一致" : 
-  summary.avg_consistency >= 50 ? "⚠️ 系统表现尚可，部分场景需优化" : 
-  "❌ 系统与人工判断偏差较大，需重点改进"}
-
-建议优化方向:
-`
-  
-  if (summary.rating_accuracy < 0.8) {
-    report += "- 整体评分区间需校准\n"
-  }
-  if (summary.strength_accuracy < 0.7) {
-    report += "- 优点识别逻辑需调整\n"
-  }
-  if (summary.weakness_accuracy < 0.7) {
-    report += "- 问题识别逻辑需调整\n"
-  }
-  if (summary.tag_validity < 0.9) {
-    report += "- 标签触发条件需收紧\n"
-  }
-  
-  return report
-}
-
-/**
- * 添加人工标注
- */
-export function addHumanAnnotation(
-  caseId: string,
-  annotation: HumanAnnotation
-): void {
-  const caseData = goldStandardDataset.find(c => c.id === caseId)
-  if (caseData) {
-    caseData.human_annotations.push(annotation)
+    exportDate: new Date().toISOString(),
+    totalEntries: entries.length,
+    matches: Array.from(new Set(entries.map(e => e.matchId))),
+    coaches: Array.from(new Set(entries.map(e => e.coachEvaluation.coachId))),
+    entries,
+    summary: {
+      avgAbsoluteScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10,
+      scoreRange: [Math.min(...scores), Math.max(...scores)],
+      confidenceDistribution: {
+        high: confidences.filter(c => c === "high").length,
+        medium: confidences.filter(c => c === "medium").length,
+        low: confidences.filter(c => c === "low").length,
+      }
+    }
   }
 }

@@ -48,3 +48,46 @@ export function getScoreLabel(score: number): string {
 export function generateId(): string {
   return crypto.randomUUID()
 }
+
+/**
+ * 计算两个向量的余弦相似度
+ */
+export function cosinesim(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length) {
+    throw new Error("Vectors must have the same length")
+  }
+  
+  let dotProduct = 0
+  let normA = 0
+  let normB = 0
+  
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i]
+    normA += vecA[i] * vecA[i]
+    normB += vecB[i] * vecB[i]
+  }
+  
+  if (normA === 0 || normB === 0) {
+    return 0
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+}
+
+/**
+ * 计算平均值
+ */
+export function mean(arr: number[]): number {
+  if (arr.length === 0) return 0
+  return arr.reduce((sum, val) => sum + val, 0) / arr.length
+}
+
+/**
+ * 计算标准差
+ */
+export function stdDev(arr: number[]): number {
+  if (arr.length < 2) return 0
+  const avg = mean(arr)
+  const variance = arr.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / (arr.length - 1)
+  return Math.sqrt(variance)
+}

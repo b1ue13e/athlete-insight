@@ -6,12 +6,21 @@
 .pnp.js
 .yarn/install-state.gz
 
+# local toolchains and SDKs
+/android/sdk/
+/jdk/
+/gradle-*.zip
+
 # testing
 /coverage
 
 # next.js
 /.next/
 /out/
+
+# generated temp artifacts
+/.tmp-gym/
+/.tmp-gym-cjs/
 
 # production
 /build
@@ -31,6 +40,11 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# local Android project state
+/android/.gradle/
+/android/.idea/
+/android/local.properties
 
 # typescript
 *.tsbuildinfo

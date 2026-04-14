@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { analyzeVolleyball } from "@/lib/mock-analysis"
 import { enhanceReportWithKimi, isKimiConfigured } from "@/lib/kimi-api"
 import { validateAnalyzeRequest, validateVolleyballForm, getFormErrors } from "@/lib/schemas"
+import { calculateGymScore, GymSessionInputSchema } from "@/lib/scoring/gym"
 import { SportType, VolleyballFormData } from "@/types"
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,23 @@ export async function POST(request: NextRequest) {
           { success: false, error: "Sport type not yet supported" },
           { status: 400 }
         )
+
+      case "gym": {
+        const gymValidation = GymSessionInputSchema.safeParse(data)
+        if (!gymValidation.success) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Invalid gym data",
+              errors: gymValidation.error.errors.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+            },
+            { status: 400 }
+          )
+        }
+
+        report = calculateGymScore(gymValidation.data)
+        break
+      }
       
       default:
         return NextResponse.json(
@@ -69,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: 如果需要，使用 Kimi 增强报告
-    if (enhance_with_ai && isKimiConfigured()) {
+    if (enhance_with_ai && isKimiConfigured() && sport_type === "volleyball" && report && "meta" in report) {
       try {
         report = await enhanceReportWithKimi(report)
       } catch (error) {
@@ -104,6 +122,7 @@ export async function GET() {
       volleyball: true,
       running: false,
       fitness: false,
+      gym: true,
       kimi_enhancement: isKimiConfigured(),
     },
   })

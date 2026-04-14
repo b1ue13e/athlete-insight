@@ -4,120 +4,41 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'lib/scoring-engine.ts'
-      - 'lib/scoring-version.ts'
-      - 'lib/evaluation-benchmark.ts'
-      - 'lib/mock-analysis.ts'
-      - 'lib/regression-test.ts'
-      - 'lib/gold-standard.ts'
-      - 'types/index.ts'
+      - "lib/scoring/running/**"
+      - "lib/scoring-engine.ts"
+      - "tests/running/**"
+      - "tests/volleyball/**"
+      - "scripts/run-tests.cjs"
+      - "package.json"
   pull_request:
     branches: [main, develop]
     paths:
-      - 'lib/scoring-engine.ts'
-      - 'lib/scoring-version.ts'
-      - 'lib/evaluation-benchmark.ts'
-      - 'lib/mock-analysis.ts'
-      - 'lib/regression-test.ts'
-      - 'lib/gold-standard.ts'
-      - 'types/index.ts'
+      - "lib/scoring/running/**"
+      - "lib/scoring-engine.ts"
+      - "tests/running/**"
+      - "tests/volleyball/**"
+      - "scripts/run-tests.cjs"
+      - "package.json"
 
 jobs:
   regression-test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          
+          node-version: "20"
+          cache: "npm"
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Run TypeScript type check
-        run: npm run type-check || npx tsc --noEmit
-        
-      - name: Run regression tests
-        id: regression
-        run: |
-          node -e "
-          const { runRegressionTest } = require('./lib/regression-test.ts');
-          const result = runRegressionTest();
-          console.log(result.summary);
-          if (!result.passed) {
-            console.error('❌ Regression tests failed');
-            process.exit(1);
-          }
-          console.log('✅ All regression tests passed');
-          "
-        continue-on-error: true
-        
-      - name: Run gold standard validation
-        id: goldstandard
-        run: |
-          node -e "
-          const { runGoldStandardValidation, generateValidationReport } = require('./lib/gold-standard.ts');
-          const { results, summary } = runGoldStandardValidation();
-          console.log(generateValidationReport());
-          
-          // 如果平均一致度低于60%，视为失败
-          if (summary.avg_consistency < 60) {
-            console.error('❌ Gold standard validation failed - consistency too low');
-            process.exit(1);
-          }
-          console.log('✅ Gold standard validation passed');
-          "
-        continue-on-error: true
-        
-      - name: Comment PR with test results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            
-            let body = '## 🧪 回归测试报告\n\n';
-            
-            // 添加回归测试状态
-            if ('${{ steps.regression.outcome }}' === 'success') {
-              body += '✅ **回归测试**: 通过\n';
-            } else {
-              body += '❌ **回归测试**: 失败\n';
-            }
-            
-            // 添加金标准验证状态
-            if ('${{ steps.goldstandard.outcome }}' === 'success') {
-              body += '✅ **人工金标准验证**: 通过\n';
-            } else {
-              body += '❌ **人工金标准验证**: 失败\n';
-            }
-            
-            body += '\n### 受影响的文件\n';
-            body += '本次变更涉及评分引擎核心文件，已自动运行完整回归测试。\n';
-            body += '\n### 测试覆盖\n';
-            body += '- 10份评估基准用例\n';
-            body += '- 位置公平性测试\n';
-            body += '- 分数漂移检测\n';
-            body += '- 人工金标准对比\n';
-            
-            if ('${{ steps.regression.outcome }}' !== 'success' || '${{ steps.goldstandard.outcome }}' !== 'success') {
-              body += '\n⚠️ **请检查测试失败原因后再合并**\n';
-            }
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
-            
-      - name: Fail if tests failed
-        if: steps.regression.outcome != 'success' || steps.goldstandard.outcome != 'success'
-        run: |
-          echo "Tests failed, see above for details"
-          exit 1
+        run: npm run typecheck
+
+      - name: Run regression test suite
+        run: npm test

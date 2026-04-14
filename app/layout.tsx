@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { PWAProvider } from "@/components/pwa/pwa-provider"
+import { AuthProvider } from "@/contexts/auth-context"
 
 // 使用系统字体栈，避免 Google Fonts 加载问题
 const fontStack = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif'
@@ -40,9 +41,11 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="font-sans antialiased" style={{ fontFamily: fontStack }}>
-        <PWAProvider>
-          {children}
-        </PWAProvider>
+        <AuthProvider>
+          <PWAProvider>
+            {children}
+          </PWAProvider>
+        </AuthProvider>
       </body>
     </html>
   )

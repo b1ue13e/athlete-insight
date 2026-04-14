@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Plus, User, ChevronRight, FileText, BarChart3 } from "lucide-react"
+import { Plus, User, ChevronRight, FileText, BarChart3, Activity, LogOut, Zap } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import { InstallPrompt, IOSInstallHint } from "@/components/pwa/install-prompt"
 import { cn } from "@/lib/utils"
 import { AthleteProfile, getAthletes, getAthleteStats } from "@/lib/athletes"
@@ -17,6 +18,7 @@ interface ReportSummary {
 }
 
 export default function HomePage() {
+  const { user, isAuthenticated, logout } = useAuth()
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
   const [reports, setReports] = useState<ReportSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -51,13 +53,36 @@ export default function HomePage() {
             </span>
           </div>
           
-          <Link
-            href="/analysis/new"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-primary)] text-sm font-bold hover:opacity-90 transition-sharp"
-          >
-            <Plus className="w-4 h-4" />
-            新建分析
-          </Link>
+          <div className="flex items-center gap-4">
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm text-[var(--text-muted)]">
+                  {user?.displayName || user?.email}
+                </span>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-sharp"
+                >
+                  <LogOut className="w-4 h-4" />
+                  退出
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-sharp"
+              >
+                登录
+              </Link>
+            )}
+            <Link
+              href="/analysis/new"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--bg-primary)] text-sm font-bold hover:opacity-90 transition-sharp"
+            >
+              <Plus className="w-4 h-4" />
+              新建分析
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -80,7 +105,7 @@ export default function HomePage() {
         {/* 快速操作 */}
         <section className="px-6 pb-12">
           <div className="max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Link
                 href="/analysis/new"
                 className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
@@ -88,13 +113,47 @@ export default function HomePage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                      新建分析报告
+                      排球分析
                     </div>
                     <p className="text-sm text-[var(--text-muted)] mt-2">
-                      快速模式（2分钟）或专业模式（完整统计）
+                      比赛表现分析报告，快速或专业模式
                     </p>
                   </div>
                   <Plus className="w-6 h-6 text-[var(--accent)]" />
+                </div>
+              </Link>
+              
+              <Link
+                href="/running"
+                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
+                      跑步训练
+                    </div>
+                    <p className="text-sm text-[var(--text-muted)] mt-2">
+                      判断训练是否练对，周视角管理进步
+                    </p>
+                  </div>
+                  <Activity className="w-6 h-6 text-[var(--accent)]" />
+                </div>
+              </Link>
+
+              <Link
+                href="/gym"
+                className="group p-6 border border-[var(--line-default)] hover:border-[var(--accent)] transition-sharp"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xl font-bold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
+                      健身训练
+                    </div>
+                    <p className="text-sm text-[var(--text-muted)] mt-2">
+                      判断训练有没有练到点上，识别结构偏差与失衡
+                    </p>
+                  </div>
+                  <Zap className="w-6 h-6 text-[var(--accent)]" />
                 </div>
               </Link>
               
