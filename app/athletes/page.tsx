@@ -3,29 +3,54 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ChevronRight, Plus, Trash2, User } from "lucide-react"
-import { AthleteProfile, deleteAthlete, deleteAthleteReports, getAthleteStats, getAthletes } from "@/lib/athletes"
+import { useAuth } from "@/contexts/auth-context"
+import { AthleteProfile, deleteAthlete, deleteAthleteReports, listAthletes } from "@/lib/athletes"
+import { deleteDiagnosisRecordsForAthlete, getDiagnosisStatsForAthlete, syncDiagnosisRecordsFromSupabase } from "@/lib/analysis/store"
 import { cn } from "@/lib/utils"
 
 export default function AthletesPage() {
+  const { isAuthenticated, user } = useAuth()
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    setAthletes(getAthletes())
-    setIsLoading(false)
-  }, [])
+    let cancelled = false
 
-  const handleDelete = (id: string) => {
+    void listAthletes(user?.id).then((nextAthletes) => {
+      if (!cancelled) {
+        setAthletes(nextAthletes)
+        setIsLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
+  const handleDelete = async (id: string) => {
     const confirmed = window.confirm("确定要删除这位运动员吗？相关分析报告也会一起删除。")
     if (!confirmed) return
 
-    deleteAthlete(id)
+    await deleteAthlete(id, user?.id)
     deleteAthleteReports(id)
-    setAthletes(getAthletes())
+    const athlete = athletes.find((item) => item.id === id)
+    await deleteDiagnosisRecordsForAthlete(id, athlete?.name, user?.id)
+    setAthletes((current) => current.filter((item) => item.id !== id))
   }
 
-  const totalReports = athletes.reduce((sum, athlete) => sum + getAthleteStats(athlete.id).totalReports, 0)
-  const activeAthletes = athletes.filter((athlete) => getAthleteStats(athlete.id).totalReports > 0).length
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return
+    }
+
+    void Promise.all([listAthletes(user.id), syncDiagnosisRecordsFromSupabase(user.id)]).then(([nextAthletes]) => {
+      setAthletes(nextAthletes)
+    })
+  }, [isAuthenticated, user])
+
+  const totalReports = athletes.reduce((sum, athlete) => sum + getDiagnosisStatsForAthlete(athlete.id, athlete.name).totalReports, 0)
+  const activeAthletes = athletes.filter((athlete) => getDiagnosisStatsForAthlete(athlete.id, athlete.name).totalReports > 0).length
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -138,7 +163,7 @@ function AthleteCard({
   athlete: AthleteProfile
   onDelete: (id: string) => void
 }) {
-  const stats = getAthleteStats(athlete.id)
+  const stats = getDiagnosisStatsForAthlete(athlete.id, athlete.name)
 
   return (
     <div className="panel group flex h-full flex-col justify-between p-5 transition-sharp hover:border-[var(--line-accent)]">

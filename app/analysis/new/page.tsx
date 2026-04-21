@@ -14,10 +14,11 @@ import {
   type LucideIcon,
   Zap,
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
 import { QuickModeForm } from "./quick-mode-form"
 import { ProfessionalModeForm } from "./professional-mode-form"
-import { AthleteProfile, createAthlete, getAthletes, getCurrentAthlete, setCurrentAthlete } from "@/lib/athletes"
+import { AthleteProfile, createAthlete, listAthletes, resolveCurrentAthlete, setCurrentAthlete } from "@/lib/athletes"
 import { InputMode } from "@/types/input"
 
 type SportType = "volleyball" | "running" | "gym"
@@ -39,31 +40,35 @@ const sportOptions: Array<{
   subtitle: string
   description: string
   bullets: string[]
+  badge?: string
   icon: LucideIcon
 }> = [
   {
-    value: "volleyball",
-    title: "排球分析",
-    subtitle: "比赛与训练表现报告",
-    description: "适合赛后复盘和阶段性训练观察，输出优势、问题和下一步训练建议。",
-    bullets: ["四维评分体系", "位置感知权重", "优势 / 风险 / 建议"],
-    icon: BarChart3,
-  },
-  {
     value: "running",
     title: "跑步训练",
-    subtitle: "训练质量与周复盘",
-    description: "从强度、节奏和恢复结构判断训练是不是练对了。",
-    bullets: ["周视角趋势", "偏差识别", "负荷与恢复平衡"],
+    subtitle: "主入口 · 高频复盘",
+    description: "如果你想先体验 Athlete Insight 的主线闭环，就从跑步开始：先判断这次有没有练对，再带着修正重点回到下一次训练。",
+    bullets: ["周复盘优先", "偏差证据链", "适合持续回访"],
+    badge: "Recommended",
     icon: Activity,
   },
   {
     value: "gym",
     title: "健身训练",
-    subtitle: "结构偏差与疲劳风险",
-    description: "帮助普通用户看清训练安排是否真正服务目标，而不只是累。",
-    bullets: ["刺激质量分析", "结构失衡诊断", "疲劳风险提示"],
+    subtitle: "第二入口 · 结构诊断",
+    description: "适合已经接受“诊断与纠偏”思路的用户。重点不是记录动作，而是判断安排有没有真正服务目标。",
+    bullets: ["结构失衡诊断", "疲劳风险提示", "下次动作建议"],
+    badge: "Depth",
     icon: Zap,
+  },
+  {
+    value: "volleyball",
+    title: "排球分析",
+    subtitle: "专项入口 · 专业背书",
+    description: "保留位置感知、赛后复盘和专项判断能力，更适合专业场景，也作为 Athlete Insight 的差异化能力展示。",
+    bullets: ["专项评分体系", "位置模板", "赛后复盘"],
+    badge: "Specialty",
+    icon: BarChart3,
   },
 ]
 
@@ -95,8 +100,9 @@ const modeOptions: Array<{
 
 export default function NewAnalysisPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [step, setStep] = useState<Step>("select-sport")
-  const [sportType, setSportType] = useState<SportType>("volleyball")
+  const [sportType, setSportType] = useState<SportType>("running")
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteProfile | null>(null)
   const [inputMode, setInputMode] = useState<InputMode>("quick")
@@ -108,13 +114,24 @@ export default function NewAnalysisPage() {
   })
 
   useEffect(() => {
-    const loadedAthletes = getAthletes()
-    setAthletes(loadedAthletes)
-    const current = getCurrentAthlete()
-    if (current) {
-      setSelectedAthlete(current)
+    let cancelled = false
+
+    void listAthletes(user?.id).then((loadedAthletes) => {
+      if (!cancelled) {
+        setAthletes(loadedAthletes)
+      }
+    })
+
+    void resolveCurrentAthlete(user?.id).then((current) => {
+      if (!cancelled && current) {
+        setSelectedAthlete(current)
+      }
+    })
+
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [user?.id])
 
   const currentStepIndex = flowSteps.findIndex((item) => item.id === step)
   const canContinue =
@@ -127,14 +144,15 @@ export default function NewAnalysisPage() {
     setCurrentAthlete(athlete.id)
   }
 
-  const handleCreateAthlete = () => {
+  const handleCreateAthlete = async () => {
     if (!newAthleteForm.name.trim()) return
 
-    const athlete = createAthlete({
+    const athlete = await createAthlete({
       name: newAthleteForm.name.trim(),
       position: newAthleteForm.position,
       team: newAthleteForm.team.trim() || undefined,
-    })
+      primarySport: "volleyball",
+    }, user?.id)
 
     setAthletes((current) => [...current, athlete])
     setSelectedAthlete(athlete)
@@ -305,6 +323,7 @@ export default function NewAnalysisPage() {
                       subtitle={option.subtitle}
                       description={option.description}
                       bullets={option.bullets}
+                      badge={option.badge}
                       icon={option.icon}
                       selected={sportType === option.value}
                       onClick={() => setSportType(option.value)}
@@ -580,6 +599,7 @@ function SelectionCard({
   subtitle,
   description,
   bullets,
+  badge,
   icon: Icon,
   selected,
   onClick,
@@ -588,6 +608,7 @@ function SelectionCard({
   subtitle: string
   description: string
   bullets: string[]
+  badge?: string
   icon: LucideIcon
   selected: boolean
   onClick: () => void
@@ -612,7 +633,8 @@ function SelectionCard({
         </div>
 
         <div className="min-w-0 flex-1 space-y-3">
-          <div className="space-y-1">
+          <div className="space-y-2">
+            {badge ? <div className="data-pill inline-flex text-[10px] uppercase tracking-[0.18em]">{badge}</div> : null}
             <div className={cn("text-xl font-semibold transition-sharp", selected ? "text-[var(--accent)]" : "text-[var(--text-primary)]")}>
               {title}
             </div>

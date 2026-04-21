@@ -4,10 +4,14 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, ChevronRight, Zap, BarChart3, AlertCircle, Clock } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import { cn } from "@/lib/utils"
 import { AdaptiveForm } from "@/components/forms/adaptive-form"
-import { AthleteProfile, getAthletes, getCurrentAthlete, setCurrentAthlete, createAthlete } from "@/lib/athletes"
+import { AthleteProfile, listAthletes, resolveCurrentAthlete, setCurrentAthlete, createAthlete } from "@/lib/athletes"
 import { generateReport } from "@/lib/report-engine"
+import { saveLegacyVolleyballSession } from "@/lib/analysis/session-store"
+import { getCurrentUser } from "@/lib/supabase-client"
+import { saveLegacyDiagnosisReport } from "@/lib/analysis/store"
 import { generateTrendComparison, generateTrendSummary } from "@/lib/trend-analysis"
 import { saveDraft, DraftReport, hasUnfinishedDraft, getRecentDraft } from "@/lib/draft-reports"
 import { DataSourceType, FormCertaintyMap, calculateOverallDataQuality } from "@/types/certainty"
@@ -19,6 +23,7 @@ type Step = "select-athlete" | "prescription-feedback" | "select-mode" | "input-
 
 export default function NewAnalysisV2Page() {
   const router = useRouter()
+  const { user } = useAuth()
   const [step, setStep] = useState<Step>("select-athlete")
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteProfile | null>(null)
@@ -44,16 +49,27 @@ export default function NewAnalysisV2Page() {
   })
 
   useEffect(() => {
-    const loadedAthletes = getAthletes()
-    setAthletes(loadedAthletes)
-    const current = getCurrentAthlete()
-    if (current) {
-      setSelectedAthlete(current)
-      setPosition(mapChinesePosition(current.position))
-      const trend = generateTrendComparison(null as any, current.id)
-      setTrendData(trend)
+    let cancelled = false
+
+    void listAthletes(user?.id).then((loadedAthletes) => {
+      if (!cancelled) {
+        setAthletes(loadedAthletes)
+      }
+    })
+
+    void resolveCurrentAthlete(user?.id).then((current) => {
+      if (!cancelled && current) {
+        setSelectedAthlete(current)
+        setPosition(mapChinesePosition(current.position))
+        const trend = generateTrendComparison(null as any, current.id)
+        setTrendData(trend)
+      }
+    })
+
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [user?.id])
 
   const handleSelectAthlete = (athlete: AthleteProfile) => {
     setSelectedAthlete(athlete)
@@ -74,14 +90,15 @@ export default function NewAnalysisV2Page() {
     }
   }
 
-  const handleCreateAthlete = () => {
+  const handleCreateAthlete = async () => {
     if (!newAthleteForm.name.trim()) return
     
-    const athlete = createAthlete({
+    const athlete = await createAthlete({
       name: newAthleteForm.name,
       position: newAthleteForm.position,
       team: newAthleteForm.team || undefined,
-    })
+      primarySport: "volleyball",
+    }, user?.id)
     
     setAthletes([...athletes, athlete])
     setSelectedAthlete(athlete)
@@ -98,7 +115,7 @@ export default function NewAnalysisV2Page() {
     }))
   }
 
-  const handleQuickSubmit = () => {
+  const handleQuickSubmit = async () => {
     if (!selectedAthlete) return
     
     const input = {
@@ -145,6 +162,14 @@ export default function NewAnalysisV2Page() {
     })
     localStorage.setItem("athlete_reports", JSON.stringify(reports))
     localStorage.setItem(`report_${report.id}`, JSON.stringify(report))
+      const currentUser = await getCurrentUser()
+      const sessionResult = await saveLegacyVolleyballSession({
+        userId: currentUser?.id,
+        athlete: selectedAthlete,
+        rawInput: input,
+        report,
+      })
+      await saveLegacyDiagnosisReport(report, currentUser?.id, sessionResult.id)
     
     router.push(`/analysis/${report.id}`)
   }

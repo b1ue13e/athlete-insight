@@ -1,25 +1,15 @@
 "use client"
 
-import { type ReactNode, useEffect, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import Link from "next/link"
-import {
-  Activity,
-  ArrowRight,
-  BarChart3,
-  ChevronRight,
-  FileText,
-  LogOut,
-  Plus,
-  type LucideIcon,
-  User,
-  Zap,
-} from "lucide-react"
+import { Activity, ArrowRight, BarChart3, ChevronRight, FileText, LogOut, Plus, type LucideIcon, User, Zap } from "lucide-react"
 import { InstallPrompt, IOSInstallHint } from "@/components/pwa/install-prompt"
 import { useAuth } from "@/contexts/auth-context"
-import { AthleteProfile, AthleteReportSummary, getAllReports, getAthletes, getAthleteStats } from "@/lib/athletes"
+import { AthleteProfile, listAthletes } from "@/lib/athletes"
+import { getDiagnosisSummaries, syncDiagnosisRecordsFromSupabase, type DiagnosisRecordSummary } from "@/lib/analysis/store"
 import { cn } from "@/lib/utils"
 
-const quickEntries: Array<{
+const primaryActions: Array<{
   href: string
   title: string
   description: string
@@ -27,58 +17,58 @@ const quickEntries: Array<{
   icon: LucideIcon
 }> = [
   {
-    href: "/analysis/new",
-    title: "排球分析",
-    description: "从比赛与训练输入开始，输出结构化判断、风险提示和下一步建议。",
-    meta: "快速 / 专业双模式",
-    icon: Plus,
-  },
-  {
-    href: "/running",
-    title: "跑步训练",
-    description: "把周训练拆成强度、恢复和趋势，让你看清是不是练对了。",
-    meta: "周视角追踪",
+    href: "/analysis/new/running",
+    title: "开始跑步诊断",
+    description: "先判断这次有没有练对，再把最该修正的重点带回下一次训练。",
+    meta: "主入口 / 高频回访",
     icon: Activity,
   },
   {
-    href: "/gym",
-    title: "健身训练",
-    description: "识别训练结构偏差、疲劳累积和动作安排是否真正指向目标。",
-    meta: "结构与负荷检查",
-    icon: Zap,
+    href: "/analysis/running/weekly",
+    title: "查看本周复盘",
+    description: "把单次训练放回周结构里，看强度、恢复和节奏是不是正在变好。",
+    meta: "周视角 / 留存核心",
+    icon: FileText,
   },
   {
-    href: "/athletes",
-    title: "运动员档案",
-    description: "集中查看档案、历史分析和表现变化，把零散记录变成长期资产。",
-    meta: "资料与报告中心",
-    icon: User,
+    href: "/analysis/new/gym",
+    title: "开始健身诊断",
+    description: "判断今天的训练有没有真正服务目标，而不是只留下疲劳感。",
+    meta: "第二主线 / 深度诊断",
+    icon: Zap,
   },
 ]
 
 export default function HomePage() {
   const { user, isAuthenticated, logout } = useAuth()
   const [athletes, setAthletes] = useState<AthleteProfile[]>([])
-  const [reports, setReports] = useState<AthleteReportSummary[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [diagnoses, setDiagnoses] = useState<DiagnosisRecordSummary[]>([])
 
   useEffect(() => {
-    const loadedAthletes = getAthletes()
-    const storedReports = getAllReports()
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    void listAthletes(user?.id).then(setAthletes)
+    setDiagnoses(getDiagnosisSummaries())
+  }, [user?.id])
 
-    setAthletes(loadedAthletes)
-    setReports(storedReports.slice(0, 10))
-    setIsLoading(false)
-  }, [])
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return
+    }
 
-  const averageScore = reports.length
-    ? Math.round(reports.reduce((total, report) => total + report.overallScore, 0) / reports.length)
+    void Promise.all([listAthletes(user.id), syncDiagnosisRecordsFromSupabase(user.id)]).then(([nextAthletes]) => {
+      setAthletes(nextAthletes)
+      setDiagnoses(getDiagnosisSummaries())
+    })
+  }, [isAuthenticated, user])
+
+  const latestDiagnosis = diagnoses[0] ?? null
+  const averageScore = diagnoses.length
+    ? Math.round(diagnoses.reduce((total, item) => total + item.overallScore, 0) / diagnoses.length)
     : null
-  const bestScore = reports.length ? Math.max(...reports.map((report) => report.overallScore)) : null
-  const activeAthletes = athletes.filter((athlete) => getAthleteStats(athlete.id).totalReports > 0).length
-  const latestReport = reports[0] ?? null
+
+  const rememberedValue = useMemo(() => {
+    if (!latestDiagnosis) return "先完成一次诊断"
+    return latestDiagnosis.rangeLabel
+  }, [latestDiagnosis])
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -90,19 +80,19 @@ export default function HomePage() {
             </div>
             <div>
               <div className="text-xs uppercase tracking-[0.28em] text-[var(--text-tertiary)]">Athlete Insight</div>
-              <div className="text-sm font-semibold text-[var(--text-primary)]">Performance Lab</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)]">Training Diagnosis Lab</div>
             </div>
           </div>
 
           <div className="hidden items-center gap-6 text-sm text-[var(--text-secondary)] md:flex">
-            <Link href="/analysis/new" className="transition-sharp hover:text-[var(--text-primary)]">
-              新建分析
+            <Link href="/analysis/new/running" className="transition-sharp hover:text-[var(--text-primary)]">
+              开始诊断
             </Link>
-            <Link href="/athletes" className="transition-sharp hover:text-[var(--text-primary)]">
-              运动员
+            <Link href="/analysis/running/weekly" className="transition-sharp hover:text-[var(--text-primary)]">
+              本周复盘
             </Link>
             <Link href="/history" className="transition-sharp hover:text-[var(--text-primary)]">
-              历史趋势
+              历史与趋势
             </Link>
           </div>
 
@@ -127,10 +117,10 @@ export default function HomePage() {
               </Link>
             )}
 
-            <Link href="/analysis/new" className="action-primary text-sm">
+            <Link href="/analysis/new/running" className="action-primary text-sm">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">新建分析</span>
-              <span className="sm:hidden">分析</span>
+              <span className="hidden sm:inline">开始诊断</span>
+              <span className="sm:hidden">诊断</span>
             </Link>
           </div>
         </div>
@@ -144,44 +134,30 @@ export default function HomePage() {
 
             <div className="relative z-10 space-y-8">
               <div className="space-y-4">
-                <div className="eyebrow text-[var(--accent)]">Performance Lab / Data-driven coaching</div>
+                <div className="eyebrow text-[var(--accent)]">Training diagnosis / correction loop</div>
                 <h1 className="font-display max-w-4xl text-balance text-[clamp(2.7rem,8vw,5.8rem)] leading-[0.94] tracking-[-0.04em] text-[var(--text-primary)]">
-                  把训练数据变成
-                  <span className="block text-[var(--accent)]">清晰判断与下一步动作</span>
+                  不是记录训练
+                  <span className="block text-[var(--accent)]">而是持续纠偏训练</span>
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-[var(--text-secondary)] sm:text-lg">
-                  Athlete Insight 面向通用用户提供专业、可读、可执行的运动表现分析。你输入比赛或训练数据，我们帮你整理重点、
-                  识别问题，并把下一步训练方向讲清楚。
+                  你输入一次训练，我们先判断有没有练对，再给出证据、风险和下次最该改的动作；等你再次回来时，再用复盘验证你有没有真的改对。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Link href="/analysis/new" className="action-primary">
-                  开始新分析
+                <Link href="/analysis/new/running" className="action-primary">
+                  开始一次跑步诊断
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link href="/athletes" className="action-secondary">
-                  查看运动员档案
+                <Link href="/analysis/running/weekly" className="action-secondary">
+                  查看本周复盘
                 </Link>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <MetricCard
-                  label="运动员档案"
-                  value={String(athletes.length)}
-                  note={athletes.length > 0 ? `${activeAthletes} 人已有历史记录` : "从第一份报告开始积累"}
-                />
-                <MetricCard
-                  label="平均表现分"
-                  value={averageScore === null ? "--" : String(averageScore)}
-                  note={averageScore === null ? "暂无分析数据" : "基于最近 10 份分析"}
-                  accent={averageScore !== null}
-                />
-                <MetricCard
-                  label="最佳单次得分"
-                  value={bestScore === null ? "--" : String(bestScore)}
-                  note={bestScore === null ? "等待首份报告" : "帮助识别上限表现"}
-                />
+                <MetricCard label="已保存诊断" value={String(diagnoses.length)} note={diagnoses.length > 0 ? "每一次都可以变成长期复盘素材" : "从第一份诊断开始积累"} />
+                <MetricCard label="平均得分" value={averageScore === null ? "--" : String(averageScore)} note={averageScore === null ? "还没有诊断数据" : "基于全部已保存诊断"} accent={averageScore !== null} />
+                <MetricCard label="当前记忆点" value={rememberedValue} note={latestDiagnosis ? latestDiagnosis.title : "系统会帮你记住最该修正的重点"} />
               </div>
             </div>
           </div>
@@ -191,54 +167,42 @@ export default function HomePage() {
 
             <div className="relative z-10 space-y-6">
               <div className="space-y-3">
-                <div className="eyebrow">实时概览</div>
+                <div className="eyebrow">主线闭环</div>
                 <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)]">
-                  专业判断，不必读一堆原始数据
+                  先判断，再修正，再回来验证
                 </h2>
                 <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                  我们用更像报告而不是表格的方式组织信息，让普通用户也能快速理解表现、风险和建议。
+                  首页不再像功能目录，而是只服务三件事：开始一次诊断、查看周复盘、检查上次建议这次有没有做到。
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <StatusCell label="分析模式" value="快速 + 专业" />
-                <StatusCell label="覆盖项目" value="排球 / 跑步 / 健身" />
-                <StatusCell label="核心输出" value="表现判断" />
-                <StatusCell label="复盘重点" value="问题 + 计划" />
+                <StatusCell label="主增长模块" value="跑步训练" />
+                <StatusCell label="深度模块" value="健身训练" />
+                <StatusCell label="专项入口" value="排球分析" />
+                <StatusCell label="产品核心" value="诊断与纠偏" />
               </div>
 
               <div className="panel space-y-4 p-5">
+                <div className="eyebrow">Latest diagnosis</div>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="eyebrow">Latest report</div>
-                    <div className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
-                      {latestReport ? latestReport.athleteName : "等待第一份分析"}
+                    <div className="text-lg font-semibold text-[var(--text-primary)]">
+                      {latestDiagnosis ? latestDiagnosis.title : "等待第一份诊断"}
                     </div>
+                    <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                      {latestDiagnosis ? latestDiagnosis.verdict : "先完成一次训练诊断，系统就会开始记住你的纠偏轨迹。"}
+                    </p>
                   </div>
-                  <div
-                    className={cn(
-                      "flex h-14 w-14 items-center justify-center rounded-full border text-lg font-bold",
-                      latestReport
-                        ? "border-[var(--line-accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
-                        : "border-[var(--line-default)] text-[var(--text-secondary)]"
-                    )}
-                  >
-                    {latestReport ? latestReport.overallScore : "--"}
+                  <div className={cn("flex h-14 w-14 items-center justify-center rounded-full border text-lg font-bold", latestDiagnosis ? "border-[var(--line-accent)] bg-[var(--accent-dim)] text-[var(--accent)]" : "border-[var(--line-default)] text-[var(--text-secondary)]")}>
+                    {latestDiagnosis ? latestDiagnosis.overallScore : "--"}
                   </div>
                 </div>
 
-                <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                  {latestReport
-                    ? `${latestReport.verdict} · ${formatReportDate(latestReport.createdAt)}`
-                    : "先录入一次比赛或训练数据，系统就会生成清晰的表现判断与下一步建议。"}
-                </p>
-
-                <div className="surface-hairline" />
-
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-                  <ProcessStep index="01" title="录入数据" description="比赛、跑步或健身信息都能进入统一结构。" />
-                  <ProcessStep index="02" title="识别重点" description="系统自动提炼优势、薄弱点和关键风险。" />
-                  <ProcessStep index="03" title="输出建议" description="把结果转成普通人也能执行的下一步动作。" />
+                  <ProcessStep index="01" title="判断有没有练对" description="先给结论，而不是先堆图表。" />
+                  <ProcessStep index="02" title="记住下次修正点" description="把最该改的动作留下来，避免看完就结束。" />
+                  <ProcessStep index="03" title="回到复盘验证" description="下次回来时，继续对照你有没有真的纠偏。" />
                 </div>
               </div>
             </div>
@@ -246,127 +210,63 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto mt-12 max-w-7xl">
-          <div className="grid gap-6 lg:grid-cols-[minmax(240px,0.32fr)_minmax(0,1fr)] lg:items-start">
-            <div className="space-y-3">
-              <div className="eyebrow">入口导航</div>
-              <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)]">
-                按你的场景进入，不用先学系统
-              </h2>
-              <p className="max-w-md text-sm leading-6 text-[var(--text-secondary)]">
-                不同模块用同一套视觉语言组织，让第一次进入的人也能迅速知道自己该从哪里开始。
-              </p>
-            </div>
+          <SectionHeading
+            eyebrow="今天最值得做的动作"
+            title="先做最能形成回访闭环的事"
+            description="优先从跑步诊断进入，再查看周复盘；健身负责更深的结构诊断，专项模式保留给专业场景。"
+          />
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {quickEntries.map((entry) => (
-                <QuickEntryCard key={entry.href} {...entry} />
-              ))}
-            </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {primaryActions.map((entry) => (
+              <QuickEntryCard key={entry.href} {...entry} />
+            ))}
           </div>
         </section>
 
-        <section className="mx-auto mt-14 grid max-w-7xl gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="mx-auto mt-14 grid max-w-7xl gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-6">
             <SectionHeading
-              eyebrow="运动员档案"
-              title="把每个运动员的长期轨迹收进一个清晰视图"
-              description="档案页不该只是数据堆积。这里先给你最近活跃对象和关键表现，方便马上进入复盘。"
-              action={
-                <Link href="/athletes" className="action-secondary text-sm">
-                  查看全部档案
-                </Link>
-              }
+              eyebrow="最近的诊断"
+              title="最新判断应该一眼找到重点"
+              description="这里不只是列记录，而是让你快速看到最近一次判断、得分、可信度和下一步入口。"
             />
 
-            {isLoading ? (
-              <LoadingPanel label="正在整理运动员档案..." />
-            ) : athletes.length === 0 ? (
+            {diagnoses.length === 0 ? (
               <EmptyState
-                icon={<User className="h-6 w-6 text-[var(--accent)]" />}
-                title="还没有运动员档案"
-                description="从一次分析开始，系统会自动为你沉淀档案、历史报告和趋势信息。"
-                href="/analysis/new"
-                linkLabel="创建第一份分析"
+                icon={<FileText className="h-6 w-6 text-[var(--accent)]" />}
+                title="还没有保存的诊断"
+                description="先完成一次跑步或健身诊断，这里就会开始形成你自己的纠偏时间线。"
+                href="/analysis/new/running"
+                linkLabel="先做第一份诊断"
               />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {athletes.slice(0, 6).map((athlete) => (
-                  <AthleteCard key={athlete.id} athlete={athlete} />
+              <div className="space-y-3">
+                {diagnoses.slice(0, 8).map((report) => (
+                  <ReportRow key={report.id} report={report} />
                 ))}
               </div>
             )}
           </div>
 
           <aside className="panel space-y-5 p-6">
-            <div className="eyebrow">系统特征</div>
+            <div className="eyebrow">辅助资产</div>
             <h3 className="font-display text-2xl leading-tight tracking-[-0.03em] text-[var(--text-primary)]">
-              给普通用户的专业体验，关键在这三件事
+              运动员档案仍然重要，但不再压过主任务
             </h3>
+            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+              档案、历史、专项模式都保留，但它们服务的是“更稳定地做诊断与复盘”，不是把首页变成功能地图。
+            </p>
+
             <div className="space-y-3">
-              <InsightCard
-                title="判断先于图表"
-                description="先把发生了什么讲清楚，再展示分数和趋势，减轻第一次使用时的认知负担。"
-              />
-              <InsightCard
-                title="空状态教你开始"
-                description="没有数据时，不留白发呆，而是把下一步入口和价值说透。"
-              />
-              <InsightCard
-                title="同一套视觉语言"
-                description="从首页到分析页，保持一致的面板、强调色和层次，让产品更像一个系统。"
-              />
+              <InsightCard title="本地档案数" description={`当前共 ${athletes.length} 份本地运动员档案，可继续用于排球或专项分析。`} />
+              <InsightCard title="历史趋势" description="所有已保存诊断都会进入统一历史页，后续会继续接上更完整的反馈和趋势层。" />
+              <InsightCard title="教练反馈" description="每份诊断都可以直接标记“判断靠谱 / 还不够准”，用于持续校准产品判断方式。" />
             </div>
-          </aside>
-        </section>
 
-        <section className="mx-auto mt-14 max-w-7xl">
-          <SectionHeading
-            eyebrow="最近报告"
-            title="最近的判断，应该一眼就能找到重点"
-            description="报告列表强化了分数、对象和结论的层次，让你在多个结果之间快速筛选。"
-            action={
-              reports.length > 0 ? (
-                <div className="data-pill text-sm">
-                  <FileText className="h-4 w-4 text-[var(--accent)]" />
-                  近 10 份报告
-                </div>
-              ) : null
-            }
-          />
-
-          {isLoading ? (
-            <LoadingPanel label="正在整理最近的报告..." />
-          ) : reports.length === 0 ? (
-            <EmptyState
-              icon={<FileText className="h-6 w-6 text-[var(--accent)]" />}
-              title="还没有分析报告"
-              description="先完成一次比赛、跑步或健身分析，系统就会在这里汇总结果并形成长期记录。"
-              href="/analysis/new"
-              linkLabel="开始第一次分析"
-            />
-          ) : (
-            <div className="space-y-3">
-              {reports.map((report) => (
-                <ReportRow key={report.id} report={report} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-8 panel grid gap-4 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="space-y-2">
-              <div className="eyebrow">准备开始</div>
-              <h3 className="font-display text-2xl tracking-[-0.03em] text-[var(--text-primary)]">
-                先录一份数据，系统会自动帮你搭出完整工作台
-              </h3>
-              <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-                首页会随着分析积累不断长出更多上下文，所以第一份数据就是最关键的启动器。
-              </p>
-            </div>
-            <Link href="/analysis/new" className="action-primary text-sm">
-              立即开始
-              <ArrowRight className="h-4 w-4" />
+            <Link href="/athletes" className="action-secondary text-sm">
+              查看运动员档案
             </Link>
-          </div>
+          </aside>
         </section>
 
         <InstallPrompt />
@@ -380,23 +280,18 @@ function SectionHeading({
   eyebrow,
   title,
   description,
-  action,
 }: {
   eyebrow: string
   title: string
   description: string
-  action?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="max-w-2xl space-y-3">
-        <div className="eyebrow">{eyebrow}</div>
-        <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)] sm:text-[2.4rem]">
-          {title}
-        </h2>
-        <p className="text-sm leading-6 text-[var(--text-secondary)] sm:text-base">{description}</p>
-      </div>
-      {action}
+    <div className="max-w-2xl space-y-3">
+      <div className="eyebrow">{eyebrow}</div>
+      <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)] sm:text-[2.4rem]">
+        {title}
+      </h2>
+      <p className="text-sm leading-6 text-[var(--text-secondary)] sm:text-base">{description}</p>
     </div>
   )
 }
@@ -434,7 +329,7 @@ function QuickEntryCard({
       </div>
 
       <div className="flex items-center justify-between text-sm text-[var(--text-secondary)] transition-sharp group-hover:text-[var(--text-primary)]">
-        <span>进入模块</span>
+        <span>进入</span>
         <ArrowRight className="h-4 w-4" />
       </div>
     </Link>
@@ -491,15 +386,6 @@ function InsightCard({ title, description }: { title: string; description: strin
   )
 }
 
-function LoadingPanel({ label }: { label: string }) {
-  return (
-    <div className="panel flex items-center gap-3 p-5 text-sm text-[var(--text-secondary)]">
-      <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent)]" />
-      {label}
-    </div>
-  )
-}
-
 function EmptyState({
   icon,
   title,
@@ -530,54 +416,7 @@ function EmptyState({
   )
 }
 
-function AthleteCard({ athlete }: { athlete: AthleteProfile }) {
-  const stats = getAthleteStats(athlete.id)
-
-  return (
-    <Link
-      href={`/athletes/${athlete.id}`}
-      className="panel group flex h-full flex-col gap-6 p-5 transition-sharp hover:border-[var(--line-accent)]"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <div className="text-lg font-semibold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
-            {athlete.name}
-          </div>
-          <div className="text-sm text-[var(--text-secondary)]">
-            {athlete.position}
-            {athlete.team ? ` · ${athlete.team}` : ""}
-          </div>
-        </div>
-        <ChevronRight className="mt-1 h-5 w-5 text-[var(--text-muted)] transition-sharp group-hover:text-[var(--accent)]" />
-      </div>
-
-      {stats.totalReports > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <StatTile label="报告数" value={String(stats.totalReports)} />
-          <StatTile label="平均分" value={String(stats.averageScore)} accent={stats.averageScore >= 70} />
-          <StatTile label="最佳" value={String(stats.bestScore)} />
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-[var(--line-default)] p-4 text-sm leading-6 text-[var(--text-secondary)]">
-          暂无历史分析，进入档案后可以继续补充该运动员的比赛或训练记录。
-        </div>
-      )}
-    </Link>
-  )
-}
-
-function StatTile({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-secondary)_86%,transparent)] p-4">
-      <div className="eyebrow">{label}</div>
-      <div className={cn("mt-2 text-xl font-semibold", accent ? "text-[var(--accent)]" : "text-[var(--text-primary)]")}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function ReportRow({ report }: { report: AthleteReportSummary }) {
+function ReportRow({ report }: { report: DiagnosisRecordSummary }) {
   return (
     <Link
       href={`/analysis/${report.id}`}
@@ -597,23 +436,18 @@ function ReportRow({ report }: { report: AthleteReportSummary }) {
 
         <div className="space-y-1">
           <div className="text-base font-semibold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
-            {report.athleteName}
+            {report.title}
           </div>
           <div className="text-sm text-[var(--text-secondary)]">{report.verdict}</div>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 sm:justify-end">
-        <div className="data-pill text-xs uppercase tracking-[0.18em]">{formatReportDate(report.createdAt)}</div>
+        <div className="data-pill text-xs uppercase tracking-[0.18em]">
+          {new Date(report.createdAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+        </div>
         <ChevronRight className="h-5 w-5 text-[var(--text-muted)] transition-sharp group-hover:text-[var(--accent)]" />
       </div>
     </Link>
   )
-}
-
-function formatReportDate(date: string) {
-  return new Date(date).toLocaleDateString("zh-CN", {
-    month: "short",
-    day: "numeric",
-  })
 }

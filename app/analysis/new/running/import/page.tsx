@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { calculateRunningScore, getOrCreateDefaultAthlete, parseActivityFile, convertToRunningInput, saveRunningSession, type ImportPreview, type ParsedActivity, type RunningGoalType, type RunningTrainingType } from "@/lib/scoring/running"
+import { getOrCreateDefaultAthlete, parseActivityFile, convertToRunningInput, saveRunningSession, type ImportPreview, type ParsedActivity, type RunningGoalType, type RunningTrainingType } from "@/lib/scoring/running"
+import { analyzeRunningActivity } from "@/lib/analysis/pipeline"
+import { saveCanonicalDiagnosisRecord } from "@/lib/analysis/store"
 import { useAuth } from "@/contexts/auth-context"
 
 type Step = "upload" | "preview" | "done"
@@ -29,6 +31,7 @@ export default function RunningImportPage() {
   const [goalType, setGoalType] = useState<RunningGoalType | "none">("none")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [savedDiagnosisId, setSavedDiagnosisId] = useState<string | null>(null)
 
   const onDrop = useCallback(async (files: File[]) => {
     const file = files[0]
@@ -73,7 +76,7 @@ export default function RunningImportPage() {
     }
 
     try {
-      const report = calculateRunningScore(input as any)
+      const analysis = analyzeRunningActivity(input)
       const athleteResult = await getOrCreateDefaultAthlete(user.id, user.email)
       if (!athleteResult.success || !athleteResult.athleteId) {
         setErrorMessage(athleteResult.error || "无法创建跑者档案。")
@@ -81,7 +84,7 @@ export default function RunningImportPage() {
         return
       }
 
-      const result = await saveRunningSession(user.id, athleteResult.athleteId, input as any, report)
+      const result = await saveRunningSession(user.id, athleteResult.athleteId, analysis.input, analysis.report)
       setSaving(false)
 
       if (!result.success) {
@@ -89,6 +92,21 @@ export default function RunningImportPage() {
         return
       }
 
+      await saveCanonicalDiagnosisRecord({
+        id: result.id ?? analysis.report.sessionId,
+        analysisSessionId: result.id,
+        sport: "running",
+        userId: user.id,
+        athleteId: athleteResult.athleteId,
+        athleteName: athleteResult.athleteName || user.displayName || user.email.split("@")[0] || "Runner",
+        title: analysis.canonical.meta.title,
+        createdAt: analysis.report.generatedAt,
+        sessionDate: analysis.input.date,
+        canonicalReport: analysis.canonical,
+        rawReport: analysis.report,
+      })
+
+      setSavedDiagnosisId(analysis.report.sessionId)
       setStep("done")
     } catch (error) {
       setSaving(false)

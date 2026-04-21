@@ -3,23 +3,43 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { AlertCircle, ArrowLeft, ChevronRight, FileText, Trophy, User } from "lucide-react"
-import { AthleteProfile, AthleteReportSummary, getAthleteById, getAthleteReports, getAthleteStats } from "@/lib/athletes"
+import { useAuth } from "@/contexts/auth-context"
+import { AthleteProfile, fetchAthleteById } from "@/lib/athletes"
+import { getDiagnosisRecordsForAthlete, getDiagnosisStatsForAthlete, syncDiagnosisRecordsFromSupabase, type DiagnosisRecordSummary } from "@/lib/analysis/store"
 import { cn } from "@/lib/utils"
 
 export function AthleteDetailPageClient({ id }: { id: string }) {
+  const { isAuthenticated, user } = useAuth()
   const [athlete, setAthlete] = useState<AthleteProfile | null>(null)
-  const [reports, setReports] = useState<AthleteReportSummary[]>([])
+  const [reports, setReports] = useState<DiagnosisRecordSummary[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setAthlete(getAthleteById(id))
-    setReports(
-      getAthleteReports(id)
-        .slice()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    )
-    setLoading(false)
-  }, [id])
+    let cancelled = false
+
+    void fetchAthleteById(id, user?.id).then((nextAthlete) => {
+      if (!cancelled) {
+        setAthlete(nextAthlete)
+        setReports(getDiagnosisRecordsForAthlete(id, nextAthlete?.name))
+        setLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, user?.id])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return
+    }
+
+    void Promise.all([fetchAthleteById(id, user.id), syncDiagnosisRecordsFromSupabase(user.id)]).then(([nextAthlete]) => {
+      setAthlete(nextAthlete)
+      setReports(getDiagnosisRecordsForAthlete(id, nextAthlete?.name))
+    })
+  }, [id, isAuthenticated, user])
 
   if (loading) {
     return (
@@ -36,7 +56,7 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
           <AlertCircle className="mx-auto mb-4 h-12 w-12 text-[var(--text-muted)]" />
           <h1 className="font-display text-3xl tracking-[-0.03em] text-[var(--text-primary)]">找不到这位运动员</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-            这条档案可能已经被删除，或者当前设备上还没有对应的数据记录。
+            这条档案可能已经被删除，或者当前设备上还没有对应的本地档案记录。
           </p>
           <Link href="/athletes" className="action-primary mt-6 text-sm">
             <ArrowLeft className="h-4 w-4" />
@@ -47,7 +67,7 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
     )
   }
 
-  const stats = getAthleteStats(athlete.id)
+  const stats = getDiagnosisStatsForAthlete(athlete.id, athlete.name)
   const createdDate = new Date(athlete.createdAt).toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",
@@ -95,10 +115,11 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <StatCard label="报告数" value={stats.totalReports} />
+              <div className="grid gap-3 sm:grid-cols-4">
+                <StatCard label="诊断数" value={stats.totalReports} />
                 <StatCard label="平均分" value={stats.averageScore} accent={stats.averageScore >= 70} />
                 <StatCard label="最佳表现" value={stats.bestScore} />
+                <StatCard label="判断靠谱" value={stats.helpfulCount} />
               </div>
             </div>
           </div>
@@ -106,21 +127,12 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
           <aside className="panel-elevated space-y-5 p-6">
             <div className="eyebrow">档案摘要</div>
             <h2 className="font-display text-2xl leading-tight tracking-[-0.03em] text-[var(--text-primary)]">
-              这位运动员当前最值得继续看什么
+              这位运动员当前最值得继续看的是什么
             </h2>
             <div className="space-y-3">
               <SummaryCard title="最佳分数" description={`目前最佳单次得分为 ${stats.bestScore}，可以作为高质量表现的参考样本。`} />
-              <SummaryCard title="稳定程度" description={reports.length === 0 ? "还没有样本，先补一到两份分析再开始看趋势。" : `当前共 ${reports.length} 份样本，平均分为 ${stats.averageScore}。`} />
-              <SummaryCard
-                title="建议动作"
-                description={
-                  reports.length === 0
-                    ? "先录入一次比赛或训练数据，让系统建立第一条基线。"
-                    : stats.averageScore >= 75
-                      ? "继续补充样本，重点观察高分表现是否可重复。"
-                      : "建议继续记录最近训练与比赛，判断波动是偶发还是稳定短板。"
-                }
-              />
+              <SummaryCard title="稳定程度" description={reports.length === 0 ? "还没有样本，先补一到两份诊断再开始看趋势。" : `当前共 ${reports.length} 份样本，平均分为 ${stats.averageScore}。`} />
+              <SummaryCard title="反馈闭环" description={`判断靠谱 ${stats.helpfulCount} 次，还不够准 ${stats.missedCount} 次。后续可以继续用反馈校准结论。`} />
             </div>
           </aside>
         </section>
@@ -129,18 +141,18 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
           <div className="space-y-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-3">
-                <div className="eyebrow">历史报告</div>
+                <div className="eyebrow">历史诊断</div>
                 <h2 className="font-display text-3xl leading-tight tracking-[-0.03em] text-[var(--text-primary)]">
-                  最近的分析记录
+                  最近的诊断记录
                 </h2>
                 <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-                  这里保留最近的判断结果。你可以沿着时间回看趋势，也可以直接进入单份报告查看细节。
+                  这里保留最近的诊断结果。你可以沿着时间回看趋势，也可以直接进入单份报告查看证据链、风险和下次动作。
                 </p>
               </div>
 
               <div className="data-pill text-xs uppercase tracking-[0.18em]">
                 <FileText className="h-3.5 w-3.5 text-[var(--accent)]" />
-                共 {reports.length} 份报告
+                共 {reports.length} 份诊断
               </div>
             </div>
 
@@ -150,13 +162,13 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
                   <FileText className="h-6 w-6 text-[var(--accent)]" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-semibold text-[var(--text-primary)]">这位运动员还没有分析报告</h3>
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)]">这位运动员还没有诊断记录</h3>
                   <p className="max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-                    先完成一次比赛或训练分析，这里就会开始沉淀长期记录。
+                    先完成一次比赛或训练分析，这里就会开始沉淀统一诊断记录。
                   </p>
                 </div>
                 <Link href="/analysis/new" className="action-primary text-sm">
-                  立即创建第一份报告
+                  立即创建第一份诊断
                 </Link>
               </div>
             ) : (
@@ -179,8 +191,14 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
                         {report.overallScore}
                       </div>
                       <div className="space-y-1">
-                        <div className="text-base font-semibold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
-                          {report.verdict}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-base font-semibold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
+                            {report.verdict}
+                          </div>
+                          <div className="data-pill text-[10px] uppercase tracking-[0.18em]">{report.rangeLabel}</div>
+                        </div>
+                        <div className="text-sm text-[var(--text-secondary)]">
+                          {report.feedback === "helpful" ? "判断靠谱" : report.feedback === "missed" ? "还不够准" : `可信度 ${report.confidenceLabel}`}
                         </div>
                         <div className="text-sm text-[var(--text-secondary)]">
                           {new Date(report.createdAt).toLocaleDateString("zh-CN", {
@@ -219,7 +237,7 @@ export function AthleteDetailPageClient({ id }: { id: string }) {
               <div className="eyebrow">下一步建议</div>
               <p className="text-sm leading-6 text-[var(--text-secondary)]">
                 {reports.length === 0
-                  ? "先补一份样本建立基线，后面再根据同一套结构做趋势判断。"
+                  ? "先补一份样本建立基线，后面再根据同一套结构看趋势。"
                   : stats.averageScore >= 75
                     ? "当前表现相对稳定，后续更值得关注的是高分表现能否在不同场景里复现。"
                     : "建议继续记录最近几次训练或比赛，让系统判断问题是偶发波动还是稳定短板。"}

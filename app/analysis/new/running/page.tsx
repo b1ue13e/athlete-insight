@@ -8,20 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DiagnosisReportShell } from "@/components/report/diagnosis-report-shell"
 import {
   buildRunningReportViewModel,
   buildRunningWeeklyPreview,
-  calculateRunningScore,
   getOrCreateDefaultAthlete,
   getRunningSessions,
   mergeRunningSessions,
   saveRunningSession,
   type DatabaseRunningSession,
   type RunningGoalType,
-  type RunningScoreReport,
   type RunningSessionInput,
   type RunningTrainingType,
 } from "@/lib/scoring/running"
+import { analyzeRunningActivity } from "@/lib/analysis/pipeline"
+import { clearSavedCorrectionFocus, getSavedCorrectionFocus, saveCorrectionFocus, type SavedCorrectionFocus } from "@/lib/analysis/focus-memory"
+import { getDiagnosisRecord, persistDiagnosisFeedback, saveCanonicalDiagnosisRecord } from "@/lib/analysis/store"
 import { useAuth } from "@/contexts/auth-context"
 
 type FormState = {
@@ -75,12 +77,16 @@ export default function RunningAnalysisPage() {
   const router = useRouter()
   const { isAuthenticated, user } = useAuth()
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
-  const [report, setReport] = useState<RunningScoreReport | null>(null)
-  const [input, setInput] = useState<RunningSessionInput | null>(null)
+  const [analysis, setAnalysis] = useState<ReturnType<typeof analyzeRunningActivity> | null>(null)
   const [sessionHistory, setSessionHistory] = useState<DatabaseRunningSession[]>([])
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [savedFocus, setSavedFocus] = useState<SavedCorrectionFocus | null>(null)
+
+  useEffect(() => {
+    setSavedFocus(getSavedCorrectionFocus("running"))
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -139,9 +145,7 @@ export default function RunningAnalysisPage() {
     }
 
     try {
-      const nextReport = calculateRunningScore(nextInput)
-      setInput(nextInput)
-      setReport(nextReport)
+      setAnalysis(analyzeRunningActivity(nextInput))
       setErrorMessage(null)
       setSaveMessage(null)
     } catch (error) {
@@ -150,7 +154,7 @@ export default function RunningAnalysisPage() {
   }
 
   const handleSave = async () => {
-    if (!report || !input) {
+    if (!analysis) {
       return
     }
 
@@ -170,7 +174,7 @@ export default function RunningAnalysisPage() {
       return
     }
 
-    const saveResult = await saveRunningSession(user.id, athleteResult.athleteId, input, report)
+    const saveResult = await saveRunningSession(user.id, athleteResult.athleteId, analysis.input, analysis.report)
     setSaving(false)
 
     if (!saveResult.success) {
@@ -183,25 +187,57 @@ export default function RunningAnalysisPage() {
       setSessionHistory(refreshedSessions.sessions)
     }
 
+    await saveCanonicalDiagnosisRecord({
+      id: saveResult.id ?? analysis.report.sessionId,
+      analysisSessionId: saveResult.id,
+      sport: "running",
+      userId: user.id,
+      athleteId: athleteResult.athleteId,
+      athleteName: athleteResult.athleteName || user.displayName || user.email.split("@")[0] || "Runner",
+      title: analysis.canonical.meta.title,
+      createdAt: analysis.report.generatedAt,
+      sessionDate: analysis.input.date,
+      canonicalReport: analysis.canonical,
+      rawReport: analysis.report,
+    })
+
     setSaveMessage("训练记录已保存。")
   }
 
+  const handleRememberFocus = () => {
+    if (!analysis?.canonical.nextActions[0]) {
+      return
+    }
+
+    saveCorrectionFocus("running", {
+      title: analysis.canonical.nextActions[0].title,
+      detail: analysis.canonical.nextActions[0].detail,
+    })
+    setSavedFocus(getSavedCorrectionFocus("running"))
+    setSaveMessage("已记住这次最该修正的重点，下次进入跑步诊断会先提醒你。")
+  }
+
+  const handleClearFocus = () => {
+    clearSavedCorrectionFocus("running")
+    setSavedFocus(null)
+  }
+
   const weeklyPreview = useMemo(() => {
-    if (!input) {
+    if (!analysis) {
       return undefined
     }
 
     const previewSessions = mergeRunningSessions(
       sessionHistory.map((session) => session.raw_input),
-      input
+      analysis.input
     )
 
-    return buildRunningWeeklyPreview(previewSessions, input.date).block
-  }, [input, sessionHistory])
+    return buildRunningWeeklyPreview(previewSessions, analysis.input.date).block
+  }, [analysis, sessionHistory])
 
   const viewModel = useMemo(
-    () => (input && report ? buildRunningReportViewModel(input, report, weeklyPreview) : null),
-    [input, report, weeklyPreview]
+    () => (analysis ? buildRunningReportViewModel(analysis.input, analysis.report, weeklyPreview) : null),
+    [analysis, weeklyPreview]
   )
 
   return (
@@ -210,264 +246,225 @@ export default function RunningAnalysisPage() {
         <div className="mb-8">
           <div className="mb-2 flex items-center gap-2">
             <Badge variant="outline">Running Score v1.0</Badge>
-            <span className="text-sm text-muted-foreground">先回答“有没有练对”，再看为什么。</span>
+            <span className="text-sm text-muted-foreground">先判断这次有没有练对，再决定下一次最该怎么改。</span>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight">跑步训练偏差复盘</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">跑步训练诊断</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            跑步是当前产品主线：先给出这次训练是否落点正确，再把修正重点带回下一次训练，并放进周复盘里验证你有没有真的纠偏。
+          </p>
         </div>
 
-        {!report || !viewModel ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>训练输入</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>训练类型</Label>
-                  <Select value={form.trainingType} onValueChange={(value) => setForm((current) => ({ ...current, trainingType: value as RunningTrainingType }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="easy">轻松跑</SelectItem>
-                      <SelectItem value="recovery">恢复跑</SelectItem>
-                      <SelectItem value="tempo">节奏跑</SelectItem>
-                      <SelectItem value="interval">间歇跑</SelectItem>
-                      <SelectItem value="long">长距离</SelectItem>
-                      <SelectItem value="race">比赛 / 测试</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>目标类型</Label>
-                  <Select value={form.goalType || "none"} onValueChange={(value) => setForm((current) => ({ ...current, goalType: value === "none" ? "" : (value as RunningGoalType) }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="可不填" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">无</SelectItem>
-                      <SelectItem value="5k">5K</SelectItem>
-                      <SelectItem value="10k">10K</SelectItem>
-                      <SelectItem value="half">半马</SelectItem>
-                      <SelectItem value="marathon">全马</SelectItem>
-                      <SelectItem value="fatloss">减脂</SelectItem>
-                      <SelectItem value="test">测试</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        {!analysis || !viewModel ? (
+          <div className="space-y-6">
+            {savedFocus ? (
+              <Card className="border-primary/20">
+                <CardContent className="flex flex-col gap-4 pt-6 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="text-sm font-medium">上次最该修正的重点</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{savedFocus.title}</div>
+                    <p className="mt-2 text-sm leading-6">{savedFocus.detail}</p>
+                  </div>
+                  <Button variant="ghost" onClick={handleClearFocus}>
+                    清除提醒
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>距离 (km)</Label>
-                  <Input value={form.distanceKm} onChange={(event) => setForm((current) => ({ ...current, distanceKm: event.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>时长 (min)</Label>
-                  <Input value={form.durationMin} onChange={(event) => setForm((current) => ({ ...current, durationMin: event.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>平均配速</Label>
-                  <Input value={form.avgPace} onChange={(event) => setForm((current) => ({ ...current, avgPace: event.target.value }))} placeholder="5:40" />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="space-y-2">
-                  <Label>平均心率</Label>
-                  <Input value={form.avgHeartRate} onChange={(event) => setForm((current) => ({ ...current, avgHeartRate: event.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>最大心率</Label>
-                  <Input value={form.maxHeartRate} onChange={(event) => setForm((current) => ({ ...current, maxHeartRate: event.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>RPE</Label>
-                  <Input value={form.rpe} onChange={(event) => setForm((current) => ({ ...current, rpe: event.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>体感</Label>
-                  <Select value={form.feeling} onValueChange={(value) => setForm((current) => ({ ...current, feeling: value as FormState["feeling"] }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="easy">轻松</SelectItem>
-                      <SelectItem value="good">正常</SelectItem>
-                      <SelectItem value="hard">吃力</SelectItem>
-                      <SelectItem value="exhausted">透支</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-dashed p-4">
-                <div className="mb-4">
-                  <h2 className="font-medium">可选计划值</h2>
-                  <p className="text-sm text-muted-foreground">有计划值时，系统更容易判断“有没有练对”。</p>
-                </div>
-
+            <Card>
+              <CardHeader>
+                <CardTitle>训练输入</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>计划距离 (km)</Label>
-                    <Input value={form.plannedDistance} onChange={(event) => setForm((current) => ({ ...current, plannedDistance: event.target.value }))} />
+                    <Label>训练类型</Label>
+                    <Select value={form.trainingType} onValueChange={(value) => setForm((current) => ({ ...current, trainingType: value as RunningTrainingType }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">轻松跑</SelectItem>
+                        <SelectItem value="recovery">恢复跑</SelectItem>
+                        <SelectItem value="tempo">节奏跑</SelectItem>
+                        <SelectItem value="interval">间歇跑</SelectItem>
+                        <SelectItem value="long">长距离</SelectItem>
+                        <SelectItem value="race">比赛 / 测试</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>计划时长 (min)</Label>
-                    <Input value={form.plannedDuration} onChange={(event) => setForm((current) => ({ ...current, plannedDuration: event.target.value }))} />
+                    <Label>目标类型</Label>
+                    <Select value={form.goalType || "none"} onValueChange={(value) => setForm((current) => ({ ...current, goalType: value === "none" ? "" : (value as RunningGoalType) }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="可不填" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">无</SelectItem>
+                        <SelectItem value="5k">5K</SelectItem>
+                        <SelectItem value="10k">10K</SelectItem>
+                        <SelectItem value="half">半马</SelectItem>
+                        <SelectItem value="marathon">全马</SelectItem>
+                        <SelectItem value="fatloss">减脂</SelectItem>
+                        <SelectItem value="test">测试</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>距离 (km)</Label>
+                    <Input value={form.distanceKm} onChange={(event) => setForm((current) => ({ ...current, distanceKm: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>时长 (min)</Label>
+                    <Input value={form.durationMin} onChange={(event) => setForm((current) => ({ ...current, durationMin: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>平均配速</Label>
+                    <Input value={form.avgPace} onChange={(event) => setForm((current) => ({ ...current, avgPace: event.target.value }))} placeholder="5:40" />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label>平均心率</Label>
+                    <Input value={form.avgHeartRate} onChange={(event) => setForm((current) => ({ ...current, avgHeartRate: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>最大心率</Label>
+                    <Input value={form.maxHeartRate} onChange={(event) => setForm((current) => ({ ...current, maxHeartRate: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>RPE</Label>
+                    <Input value={form.rpe} onChange={(event) => setForm((current) => ({ ...current, rpe: event.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>体感</Label>
+                    <Select value={form.feeling} onValueChange={(value) => setForm((current) => ({ ...current, feeling: value as FormState["feeling"] }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">轻松</SelectItem>
+                        <SelectItem value="good">正常</SelectItem>
+                        <SelectItem value="hard">吃力</SelectItem>
+                        <SelectItem value="exhausted">透支</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-dashed p-4">
+                  <div className="mb-4">
+                    <h2 className="font-medium">可选计划值</h2>
+                    <p className="text-sm text-muted-foreground">有计划值时，系统更容易判断“这次是没练，还是练偏了”。</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>计划配速下限</Label>
-                      <Input value={form.plannedPaceMin} onChange={(event) => setForm((current) => ({ ...current, plannedPaceMin: event.target.value }))} placeholder="5:20" />
+                      <Label>计划距离 (km)</Label>
+                      <Input value={form.plannedDistance} onChange={(event) => setForm((current) => ({ ...current, plannedDistance: event.target.value }))} />
                     </div>
                     <div className="space-y-2">
-                      <Label>计划配速上限</Label>
-                      <Input value={form.plannedPaceMax} onChange={(event) => setForm((current) => ({ ...current, plannedPaceMax: event.target.value }))} placeholder="5:40" />
+                      <Label>计划时长 (min)</Label>
+                      <Input value={form.plannedDuration} onChange={(event) => setForm((current) => ({ ...current, plannedDuration: event.target.value }))} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>计划心率下限</Label>
-                      <Input value={form.plannedHrMin} onChange={(event) => setForm((current) => ({ ...current, plannedHrMin: event.target.value }))} />
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>计划配速下限</Label>
+                        <Input value={form.plannedPaceMin} onChange={(event) => setForm((current) => ({ ...current, plannedPaceMin: event.target.value }))} placeholder="5:20" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>计划配速上限</Label>
+                        <Input value={form.plannedPaceMax} onChange={(event) => setForm((current) => ({ ...current, plannedPaceMax: event.target.value }))} placeholder="5:40" />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>计划心率上限</Label>
-                      <Input value={form.plannedHrMax} onChange={(event) => setForm((current) => ({ ...current, plannedHrMax: event.target.value }))} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>计划心率下限</Label>
+                        <Input value={form.plannedHrMin} onChange={(event) => setForm((current) => ({ ...current, plannedHrMin: event.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>计划心率上限</Label>
+                        <Input value={form.plannedHrMax} onChange={(event) => setForm((current) => ({ ...current, plannedHrMax: event.target.value }))} />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+                {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
 
-              <Button className="w-full" onClick={handleAnalyze}>
-                生成训练偏差报告
-              </Button>
-            </CardContent>
-          </Card>
+                <Button className="w-full" onClick={handleAnalyze}>
+                  生成训练诊断
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <div className="space-y-6">
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={() => setReport(null)}>
+              <Button variant="outline" onClick={() => setAnalysis(null)}>
                 返回修改输入
               </Button>
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? "保存中..." : "保存训练记录"}
               </Button>
+              <Button variant="outline" onClick={handleRememberFocus}>
+                记住本次修正重点
+              </Button>
               <Button variant="outline" onClick={() => router.push("/analysis/running/weekly")}>
-                查看周训练块复盘
+                查看周复盘
               </Button>
             </div>
 
             {saveMessage ? <p className="text-sm text-emerald-600">{saveMessage}</p> : null}
             {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
 
-            <Card className="border-2">
-              <CardContent className="pt-6">
-                <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge>{viewModel.hero.trainingTypeLabel}</Badge>
-                      {viewModel.hero.goalLabel ? <Badge variant="outline">{viewModel.hero.goalLabel}</Badge> : null}
-                      <Badge variant={viewModel.hero.isOnTarget ? "default" : "secondary"}>{viewModel.hero.scoreRange}</Badge>
-                    </div>
-                    <h2 className="text-2xl font-semibold">{viewModel.hero.verdict}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {viewModel.hero.isOnTarget ? "这次训练整体落点是对的。" : "这次训练存在明显偏差，需要针对性修正。"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-muted p-4">
-                    <div className="text-sm text-muted-foreground">综合得分</div>
-                    <div className="mt-2 text-4xl font-semibold">{viewModel.hero.finalScore}</div>
-                    <div className="mt-3 text-sm text-muted-foreground">报告可信度 {viewModel.hero.confidenceLabel}</div>
-                    {viewModel.hero.confidenceReason ? (
-                      <div className="mt-1 text-xs text-muted-foreground">{viewModel.hero.confidenceReason}</div>
-                    ) : null}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <DiagnosisReportShell
+              report={analysis.canonical}
+              initialFeedback={getDiagnosisRecord(analysis.report.sessionId)?.feedback ?? null}
+              onFeedbackChange={(value) => void persistDiagnosisFeedback(analysis.report.sessionId, value, user?.id)}
+            />
 
             <Card>
               <CardHeader>
-                <CardTitle>四维评分</CardTitle>
+                <CardTitle>跑步专项拆解</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                {viewModel.dimensions.map((dimension) => (
-                  <div key={dimension.key} className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{dimension.label}</div>
-                        <div className="text-sm text-muted-foreground">{dimension.verdict}</div>
-                      </div>
-                      <div className="text-2xl font-semibold">{dimension.score}</div>
+                <div className="rounded-2xl border p-4">
+                  <div className="text-sm font-medium">本次最值得记住的两件事</div>
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                      <div className="text-sm font-medium">最值得肯定</div>
+                      <div className="mt-2 text-sm">{viewModel.diagnosis.strongestSignal.title}</div>
+                      <div className="mt-2 text-sm text-muted-foreground">{viewModel.diagnosis.strongestSignal.detail}</div>
                     </div>
-                    <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                      {dimension.evidence.slice(0, 2).map((item) => (
-                        <div key={item}>{item}</div>
-                      ))}
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                      <div className="text-sm font-medium">最该修正</div>
+                      <div className="mt-2 text-sm">{viewModel.diagnosis.biggestCorrection.title}</div>
+                      <div className="mt-2 text-sm text-muted-foreground">{viewModel.diagnosis.biggestCorrection.detail}</div>
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
+                </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>偏差诊断</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {viewModel.diagnosis.deviations.length > 0 ? (
-                    viewModel.diagnosis.deviations.map((deviation) => (
-                      <div key={deviation.code} className="rounded-lg border p-4">
-                        <div className="mb-2 flex items-center gap-2">
-                          <Badge variant={deviation.severity === "major" ? "destructive" : "secondary"}>{deviation.severity}</Badge>
-                          <span className="font-medium">{deviation.label}</span>
-                        </div>
-                        <p className="text-sm">{deviation.summary}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{deviation.action}</p>
-                      </div>
-                    ))
+                <div className="rounded-2xl border p-4">
+                  <div className="text-sm font-medium">周复盘入口</div>
+                  {viewModel.weeklyEntry ? (
+                    <div className="mt-4 space-y-4">
+                      <p className="text-sm text-muted-foreground">{viewModel.weeklyEntry.summary}</p>
+                      <Button variant="outline" onClick={() => router.push(viewModel.weeklyEntry!.href)}>
+                        进入周复盘
+                      </Button>
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">没有识别到明显跑偏，这次训练执行比较干净。</p>
+                    <p className="mt-4 text-sm text-muted-foreground">先保存更多单次训练，这里会自动长出周结构复盘。</p>
                   )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>这次最值得记住的两件事</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border bg-emerald-500/5 p-4">
-                    <div className="mb-1 font-medium">最值得肯定</div>
-                    <div className="text-sm">{viewModel.diagnosis.strongestSignal.title}</div>
-                    <div className="mt-2 text-sm text-muted-foreground">{viewModel.diagnosis.strongestSignal.detail}</div>
-                  </div>
-                  <div className="rounded-lg border bg-amber-500/5 p-4">
-                    <div className="mb-1 font-medium">最需要修正</div>
-                    <div className="text-sm">{viewModel.diagnosis.biggestCorrection.title}</div>
-                    <div className="mt-2 text-sm text-muted-foreground">{viewModel.diagnosis.biggestCorrection.detail}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>下次训练建议</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {viewModel.suggestions.map((suggestion) => (
-                  <div key={suggestion} className="rounded-lg border p-4 text-sm">
-                    {suggestion}
-                  </div>
-                ))}
+                </div>
               </CardContent>
             </Card>
 
@@ -478,9 +475,9 @@ export default function RunningAnalysisPage() {
               <CardContent className="space-y-4">
                 {viewModel.advanced.length > 0 ? (
                   viewModel.advanced.map((insight) => (
-                    <div key={insight.title} className="rounded-lg border p-4">
+                    <div key={insight.title} className="rounded-2xl border p-4">
                       <div className="mb-2 flex items-center gap-2">
-                        <Badge variant="outline">实验性</Badge>
+                        <Badge variant="outline">实验层</Badge>
                         <Badge variant="secondary">{insight.evidenceLevel}</Badge>
                         <span className="font-medium">{insight.title}</span>
                       </div>
@@ -499,20 +496,6 @@ export default function RunningAnalysisPage() {
                 )}
               </CardContent>
             </Card>
-
-            {viewModel.weeklyEntry ? (
-              <Card>
-                <CardContent className="flex flex-col gap-4 pt-6 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="font-medium">{viewModel.weeklyEntry.title}</div>
-                    <div className="text-sm text-muted-foreground">{viewModel.weeklyEntry.summary}</div>
-                  </div>
-                  <Button variant="outline" onClick={() => router.push(viewModel.weeklyEntry!.href)}>
-                    进入周复盘
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : null}
           </div>
         )}
       </div>

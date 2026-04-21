@@ -1,519 +1,327 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { 
-  ArrowLeft, ArrowUpRight, ArrowDownRight, TrendingUp, 
-  Activity, Minus, AlertCircle
-} from "lucide-react"
-import { mockStorage, sampleAthlete, performanceTags } from "@/lib/sample-data"
-import { formatDate } from "@/lib/utils"
-import { AnalysisSession, TrendAnalysis } from "@/types"
-import { analyzeVersionConsistency } from "@/lib/scoring-version"
-
-// 表现实验室历史页
-// 趋势控制台，不是历史列表
+import { ArrowLeft, ArrowUpRight, BarChart3, CheckCircle2, ChevronRight, Clock3, Layers3, Target, XCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/contexts/auth-context"
+import { getAnalysisDebugBundle, type AnalysisDebugBundle } from "@/lib/analysis/debug-bundle"
+import { getDiagnosisSummaries, syncDiagnosisRecordsFromSupabase, type DiagnosisRecordSummary } from "@/lib/analysis/store"
 
 export default function HistoryPage() {
-  const sessions = mockStorage.getSessionsByAthlete(sampleAthlete.id)
-  const recentSessions = sessions.slice(0, 5)
-  
-  // 版本一致性
-  const versionAnalysis = useMemo(() => {
-    const versions = recentSessions.map(s => s.report_json?.meta?.scoring_version || "unknown")
-    return analyzeVersionConsistency(versions)
-  }, [recentSessions])
-  
-  // 趋势分析
-  const trendAnalysis = useMemo(() => calculateTrendAnalysis(recentSessions), [recentSessions])
+  const { isAuthenticated, user } = useAuth()
+  const [records, setRecords] = useState<DiagnosisRecordSummary[]>([])
+  const [debugBundles, setDebugBundles] = useState<Record<string, AnalysisDebugBundle>>({})
 
-  if (sessions.length === 0) {
+  useEffect(() => {
+    setRecords(getDiagnosisSummaries())
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return
+    }
+
+    void syncDiagnosisRecordsFromSupabase(user.id).then(() => {
+      setRecords(getDiagnosisSummaries())
+    })
+  }, [isAuthenticated, user])
+
+  useEffect(() => {
+    let cancelled = false
+    const targets = records.slice(0, 8)
+    if (targets.length === 0) {
+      setDebugBundles({})
+      return
+    }
+
+    void Promise.all(
+      targets.map(async (record) => [
+        record.id,
+        await getAnalysisDebugBundle({
+          analysisSessionId: record.analysisSessionId,
+          fallbackSessionId: record.id,
+          sport: record.sport,
+        }),
+      ] as const)
+    ).then((entries) => {
+      if (!cancelled) {
+        setDebugBundles(Object.fromEntries(entries))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [records])
+
+  const dashboard = useMemo(() => {
+    const latestFive = records.slice(0, 5)
+    const previousFive = records.slice(5, 10)
+
+    const average = (items: DiagnosisRecordSummary[]) =>
+      items.length ? Math.round(items.reduce((total, item) => total + item.overallScore, 0) / items.length) : null
+
+    const latestAverage = average(latestFive)
+    const previousAverage = average(previousFive)
+
+    return {
+      latestAverage,
+      previousAverage,
+      averageChange:
+        latestAverage !== null && previousAverage !== null ? latestAverage - previousAverage : null,
+      bestScore: records.length ? Math.max(...records.map((item) => item.overallScore)) : null,
+      helpfulCount: records.filter((item) => item.feedback === "helpful").length,
+      missedCount: records.filter((item) => item.feedback === "missed").length,
+      bySport: {
+        running: records.filter((item) => item.sport === "running").length,
+        gym: records.filter((item) => item.sport === "gym").length,
+        volleyball: records.filter((item) => item.sport === "volleyball").length,
+      },
+    }
+  }, [records])
+
+  if (records.length === 0) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-[var(--text-tertiary)]">暂无分析记录</div>
-          <Link 
-            href="/analysis/new"
-            className="inline-flex items-center gap-2 px-6 py-3 border border-[var(--accent)] text-[var(--accent)] text-sm tracking-wider uppercase hover:bg-[var(--accent)]/10 transition-sharp"
-          >
-            开始首次分析
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4">
+        <div className="max-w-xl space-y-4 text-center">
+          <div className="text-sm uppercase tracking-[0.24em] text-[var(--text-tertiary)]">History</div>
+          <h1 className="font-display text-4xl tracking-[-0.04em] text-[var(--text-primary)]">还没有形成诊断时间线</h1>
+          <p className="text-sm leading-6 text-[var(--text-secondary)]">
+            先完成一份跑步或健身诊断，历史页就会开始记录你的分数、纠偏重点和“判断准不准”的反馈。
+          </p>
+          <Link href="/analysis/new/running" className="action-primary inline-flex text-sm">
+            开始第一份诊断
           </Link>
         </div>
       </div>
     )
   }
 
-  const latestSession = sessions[0]
-  const latestScore = latestSession.overall_score || 0
-
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] grid-bg">
-      {/* 导航 */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/80 backdrop-blur-sm border-b border-[var(--line-default)]">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link 
-            href="/"
-            className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-sharp"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm tracking-wide">返回</span>
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-primary)_84%,transparent)] backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2 text-sm text-[var(--text-secondary)] transition-sharp hover:text-[var(--text-primary)]">
+            <ArrowLeft className="h-4 w-4" />
+            返回首页
           </Link>
-          
-          <div className="text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">
-            表现控制台
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.24em] text-[var(--text-tertiary)]">Diagnosis history</div>
         </div>
       </nav>
 
-      <main className="pt-14">
-        {/* 主视觉 - 趋势结论 */}
-        <section className="min-h-[50vh] flex items-center border-b border-[var(--line-default)] relative overflow-hidden">
-          <div className="absolute inset-0 data-texture pointer-events-none" />
-          
-          <div className="max-w-7xl mx-auto px-6 w-full py-16">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-              {/* 左侧：运动员信息 */}
-              <div className="space-y-6">
-                <div>
-                  <div className="editorial-title mb-2">运动员</div>
-                  <h1 className="text-4xl font-bold tracking-tight text-[var(--text-primary)]">
-                    {sampleAthlete.name}
-                  </h1>
-                  <div className="mt-2 text-[var(--text-secondary)]">
-                    {sampleAthlete.position} // {sampleAthlete.primary_sport === "volleyball" ? "排球" : sampleAthlete.primary_sport}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-6 text-sm">
-                  <div>
-                    <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase">分析次数</div>
-                    <div className="font-mono text-xl text-[var(--text-primary)]">{sessions.length}</div>
-                  </div>
-                  <div className="w-px h-8 bg-[var(--line-strong)]" />
-                  <div>
-                    <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase">平均得分</div>
-                    <div className="font-mono text-xl text-[var(--text-primary)]">
-                      {Math.round(sessions.reduce((acc, s) => acc + (s.overall_score || 0), 0) / sessions.length)}
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+        <section className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <div className="relative overflow-hidden rounded-[2rem] border border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-secondary)_88%,transparent)] px-6 py-8 sm:px-8 sm:py-10">
+            <div className="hero-orbit left-[-10%] top-[-18%] h-52 w-52 opacity-20" />
+            <div className="relative z-10 space-y-6">
+              <div className="eyebrow text-[var(--accent)]">Recent trajectory</div>
+              <h1 className="font-display text-[clamp(2.4rem,6vw,4.8rem)] leading-[0.94] tracking-[-0.04em]">
+                不只是历史列表
+                <span className="block text-[var(--accent)]">而是你的纠偏轨迹</span>
+              </h1>
+              <p className="max-w-2xl text-sm leading-7 text-[var(--text-secondary)] sm:text-base">
+                每份诊断都会把“这次为什么这样判断”和“下次最该怎么改”留下来。历史页的任务，是让你判断自己是不是正在稳定变好。
+              </p>
 
-              {/* 中间：趋势方向 */}
-              {trendAnalysis && (
-                <div className="flex flex-col justify-center">
-                  <div className="editorial-title mb-4">发展轨迹</div>
-                  
-                  {versionAnalysis.adjustedTrend ? (
-                    <div className="space-y-4">
-                      <div className="text-5xl font-bold text-[var(--warning)]">
-                        不确定
+              <div className="grid gap-3 sm:grid-cols-3">
+                <MetricCard label="已保存诊断" value={String(records.length)} note="全部进入统一时间线" />
+                <MetricCard label="最新 5 次均分" value={dashboard.latestAverage === null ? "--" : String(dashboard.latestAverage)} note={dashboard.averageChange === null ? "还没有足够数据对比" : `较前 5 次 ${dashboard.averageChange >= 0 ? "+" : ""}${dashboard.averageChange}`} accent={dashboard.averageChange !== null && dashboard.averageChange >= 0} />
+                <MetricCard label="历史最好分" value={dashboard.bestScore === null ? "--" : String(dashboard.bestScore)} note="用于识别你的上限表现" />
+              </div>
+            </div>
+          </div>
+
+          <aside className="panel-elevated space-y-5 p-6">
+            <div className="eyebrow">反馈闭环</div>
+            <h2 className="font-display text-2xl tracking-[-0.03em] text-[var(--text-primary)]">
+              现在开始积累“判断准不准”
+            </h2>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatusCell icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} label="判断靠谱" value={String(dashboard.helpfulCount)} />
+              <StatusCell icon={<XCircle className="h-4 w-4 text-rose-500" />} label="还不够准" value={String(dashboard.missedCount)} />
+            </div>
+
+            <div className="space-y-3">
+              <InsightCard title="跑步主线" description={`已保存 ${dashboard.bySport.running} 份，适合做周复盘和持续回访。`} />
+              <InsightCard title="健身深度诊断" description={`已保存 ${dashboard.bySport.gym} 份，更适合观察结构与疲劳。`} />
+              <InsightCard title="专项模式" description={`已保存 ${dashboard.bySport.volleyball} 份，用于承接排球等专业场景。`} />
+            </div>
+          </aside>
+        </section>
+
+        <section className="mt-14 space-y-6">
+          <div className="flex items-end justify-between gap-4">
+            <div className="space-y-2">
+              <div className="eyebrow">全部记录</div>
+              <h2 className="font-display text-3xl tracking-[-0.03em] text-[var(--text-primary)]">最近的判断、反馈和入口</h2>
+              <p className="text-sm leading-6 text-[var(--text-secondary)]">点击任一诊断可以继续查看证据链、风险和下次动作，也可以直接补充反馈。</p>
+            </div>
+            <Link href="/analysis/new/running" className="action-secondary text-sm">
+              再做一次诊断
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {records.map((record) => (
+              <Link
+                key={record.id}
+                href={`/analysis/${record.id}`}
+                className="panel group flex flex-col gap-4 p-4 transition-sharp hover:border-[var(--line-accent)] sm:flex-row sm:items-center sm:justify-between sm:p-5"
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-lg font-bold ${
+                      record.overallScore >= 70
+                        ? "border-[var(--line-accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
+                        : "border-[var(--line-default)] bg-[var(--bg-muted)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {record.overallScore}
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-base font-semibold text-[var(--text-primary)] transition-sharp group-hover:text-[var(--accent)]">
+                        {record.title}
                       </div>
-                      <p className="text-[var(--text-secondary)] text-sm">
-                        {versionAnalysis.adjustedTrend.note}
-                      </p>
+                      <Badge variant="outline">{record.sport}</Badge>
+                      <Badge variant="secondary">{record.rangeLabel}</Badge>
+                      {record.feedback ? (
+                        <Badge variant={record.feedback === "helpful" ? "default" : "destructive"}>
+                          {record.feedback === "helpful" ? "判断靠谱" : "还不够准"}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="text-sm text-[var(--text-secondary)]">{record.verdict}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="h-4 w-4" />
+                    {new Date(record.createdAt).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    可信度 {record.confidenceLabel}
+                  </div>
+                  <ChevronRight className="h-4 w-4 transition-sharp group-hover:text-[var(--accent)]" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-14 space-y-6">
+          <div className="space-y-2">
+            <div className="eyebrow">Debug view</div>
+            <h2 className="font-display text-3xl tracking-[-0.03em] text-[var(--text-primary)]">Diagnosis + Session + Enhancement 联合视图</h2>
+            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+              这里不是给普通用户看的，而是为了确认每条 diagnosis 是否已经正确挂到 analysis_session，并补齐专项增强层。
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {records.slice(0, 8).map((record) => {
+              const bundle = debugBundles[record.id]
+              const readyLayers = bundle?.layers.filter((layer) => layer.available).length ?? 0
+              return (
+                <div key={`debug-${record.id}`} className="panel space-y-4 p-5">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-base font-semibold">{record.title}</div>
+                        <Badge variant="outline">{record.sport}</Badge>
+                        <Badge variant={bundle?.session ? "default" : "secondary"}>{bundle?.session ? "session linked" : "session missing"}</Badge>
+                      </div>
+                      <div className="text-sm text-[var(--text-secondary)]">
+                        diagnosis={record.id}
+                        {record.analysisSessionId ? ` · analysis_session=${record.analysisSessionId}` : " · analysis_session=missing"}
+                      </div>
+                    </div>
+                    <Link href={`/analysis/${record.id}`} className="action-secondary text-sm">
+                      打开详情联调
+                    </Link>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <DebugCell label="Diagnosis" value="ready" accent />
+                    <DebugCell label="Session trunk" value={bundle?.session ? bundle.session.input_method : "missing"} />
+                    <DebugCell label="Enhancement layers" value={`${readyLayers}/${bundle?.layers.length ?? 0}`} />
+                    <DebugCell label="Feedback" value={record.feedback ?? "pending"} />
+                  </div>
+
+                  {bundle?.layers.length ? (
+                    <div className="grid gap-3 xl:grid-cols-3">
+                      {bundle.layers.map((layer) => (
+                        <div key={layer.key} className="rounded-2xl border p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium">{layer.label}</div>
+                            <div className="data-pill text-[10px] uppercase tracking-[0.18em]">{layer.available ? layer.source : "missing"}</div>
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{layer.summary}</p>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className={`text-5xl font-bold ${
-                        trendAnalysis.long_term_trend.direction === "improving" ? 'text-[var(--positive)]' :
-                        trendAnalysis.long_term_trend.direction === "declining" ? 'text-[var(--negative)]' :
-                        trendAnalysis.long_term_trend.direction === "fluctuating" ? 'text-[var(--warning)]' :
-                        'text-[var(--text-primary)]'
-                      }`}>
-                        {trendAnalysis.long_term_trend.direction === "improving" ? "上升" :
-                         trendAnalysis.long_term_trend.direction === "declining" ? "下降" :
-                         trendAnalysis.long_term_trend.direction === "fluctuating" ? "波动" :
-                         "平稳"}
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
-                        <span>波动率: {(trendAnalysis.long_term_trend.volatility * 100).toFixed(0)}%</span>
-                        <span className="w-1 h-1 rounded-full bg-[var(--text-muted)]" />
-                        <span>最佳: {trendAnalysis.long_term_trend.best_score}</span>
-                      </div>
+                    <div className="rounded-2xl border border-dashed p-4 text-sm text-[var(--text-secondary)]">
+                      当前还没有读到专项增强层，可能是旧记录、未执行 migration，或者该记录尚未重新保存。
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* 右侧：最新分数 */}
-              <div className="flex flex-col justify-center items-start lg:items-end">
-                <div className="editorial-title mb-4">最新</div>
-                <div className={`font-mono text-7xl font-bold ${
-                  latestScore >= 80 ? 'accent-text' :
-                  latestScore >= 60 ? 'text-[var(--text-primary)]' :
-                  'text-[var(--negative)]'
-                }`}>
-                  {latestScore}
-                </div>
-                <div className="mt-2 text-[var(--text-secondary)]">
-                  {latestSession.title}
-                </div>
-                <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase mt-1">
-                  {formatDate(latestSession.session_date)}
-                </div>
-              </div>
-            </div>
+              )
+            })}
           </div>
         </section>
-
-        {/* 版本警告 */}
-        {versionAnalysis.crossVersionAnalysis && (
-          <section className="py-4 bg-[var(--warning)]/5 border-b border-[var(--warning)]/20">
-            <div className="max-w-7xl mx-auto px-6 flex items-center gap-3">
-              <AlertCircle className="w-4 h-4 text-[var(--warning)]" />
-              <span className="text-sm text-[var(--warning)]">
-                检测到跨版本分析。趋势可能受评分规则调整影响。
-              </span>
-            </div>
-          </section>
-        )}
-
-        {/* 表现时间线 */}
-        <section className="py-16 border-b border-[var(--line-default)]">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="editorial-title mb-8">表现时间线</div>
-            
-            {/* 时间线可视化 */}
-            <div className="relative">
-              {/* 连接线 */}
-              <div className="absolute top-1/2 left-0 right-0 h-px bg-[var(--line-default)] -translate-y-1/2" />
-              
-              <div className="grid grid-cols-5 gap-4">
-                {[...sessions].reverse().slice(-5).map((session, index) => {
-                  const score = session.overall_score || 0
-                  const prevScore = index > 0 ? (sessions[sessions.length - 5 + index - 1]?.overall_score || 0) : null
-                  const change = prevScore !== null ? score - prevScore : null
-                  
-                  return (
-                    <Link key={session.id} href={`/analysis/${session.id}`}>
-                      <div className="relative group cursor-pointer">
-                        {/* 分数点 */}
-                        <div className={`relative z-10 w-full aspect-square border-2 flex flex-col items-center justify-center transition-sharp group-hover:border-[var(--accent)] ${
-                          score >= 80 ? 'border-[var(--positive)]/50 bg-[var(--positive)]/5' :
-                          score >= 60 ? 'border-[var(--line-strong)] bg-[var(--bg-secondary)]' :
-                          'border-[var(--negative)]/50 bg-[var(--negative)]/5'
-                        }`}>
-                          <span className={`font-mono text-3xl font-bold ${
-                            score >= 80 ? 'text-[var(--positive)]' :
-                            score >= 60 ? 'text-[var(--text-primary)]' :
-                            'text-[var(--negative)]'
-                          }`}>
-                            {score}
-                          </span>
-                          
-                          {change !== null && change !== 0 && (
-                            <span className={`text-[10px] mt-1 ${
-                              change > 0 ? 'text-[var(--positive)]' : 'text-[var(--negative)]'
-                            }`}>
-                              {change > 0 ? '+' : ''}{change}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* 日期标签 */}
-                        <div className="mt-3 text-center">
-                          <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase">
-                            {formatDate(session.session_date).split(' ')[0]}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 分析网格 */}
-        <section className="py-16">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* 高频问题 */}
-              {trendAnalysis && trendAnalysis.top_issues.length > 0 && (
-                <div>
-                  <div className="editorial-title mb-6 text-[var(--negative)]">反复出现的问题</div>
-                  <div className="space-y-4">
-                    {trendAnalysis.top_issues.map((issue) => {
-                      const tagInfo = performanceTags.find(t => t.code === issue.tag)
-                      return (
-                        <div 
-                          key={issue.tag}
-                          className="flex items-center justify-between py-4 border-b border-[var(--line-default)]"
-                        >
-                          <div className="flex items-center gap-4">
-                            <span className="font-mono text-2xl text-[var(--text-primary)]">
-                              {issue.occurrence_count}<span className="text-[var(--text-muted)] text-lg">/5</span>
-                            </span>
-                            <div>
-                              <div className="text-sm font-medium text-[var(--text-primary)]">
-                                {tagInfo?.name || issue.tag}
-                              </div>
-                              <div className={`text-[10px] tracking-wider uppercase ${
-                                issue.trend === "improving" ? 'text-[var(--positive)]' :
-                                issue.trend === "worsening" ? 'text-[var(--negative)]' :
-                                'text-[var(--text-muted)]'
-                              }`}>
-                                {issue.trend === "improving" ? "改善中" : issue.trend === "worsening" ? "恶化" : "稳定"}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* 迷你进度条 */}
-                          <div className="w-24 h-1 bg-[var(--line-default)]">
-                            <div 
-                              className={`h-full ${
-                                issue.trend === "improving" ? 'bg-[var(--positive)]' :
-                                issue.trend === "worsening" ? 'bg-[var(--negative)]' :
-                                'bg-[var(--text-muted)]'
-                              }`}
-                              style={{ width: `${(issue.occurrence_count / 5) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* 稳定优势 */}
-              {trendAnalysis && trendAnalysis.top_strengths.length > 0 && (
-                <div>
-                  <div className="editorial-title mb-6 text-[var(--positive)]">稳定优势</div>
-                  <div className="space-y-4">
-                    {trendAnalysis.top_strengths.map((strength) => (
-                      <div 
-                        key={strength.category}
-                        className="flex items-center justify-between py-4 border-b border-[var(--line-default)]"
-                      >
-                        <div className="flex items-center gap-4">
-                          <span className="font-mono text-2xl text-[var(--positive)]">
-                            {strength.average_score.toFixed(0)}
-                          </span>
-                          <div>
-                            <div className="text-sm font-medium text-[var(--text-primary)]">
-                              {strength.category === "scoring_contribution" ? "得分贡献" :
-                               strength.category === "error_control" ? "失误控制" :
-                               strength.category === "stability" ? "稳定性" : "关键分"}
-                            </div>
-                            <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase">
-                              {strength.consistency === "high" ? "很稳定" : "较稳定"}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* 迷你进度条 */}
-                        <div className="w-24 h-1 bg-[var(--line-default)]">
-                          <div 
-                            className="h-full bg-[var(--positive)]"
-                            style={{ width: `${strength.average_score}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* 历史记录列表 */}
-        <section className="py-16 bg-[var(--bg-secondary)] border-t border-[var(--line-default)]">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="editorial-title mb-8">全部记录</div>
-            
-            <div className="space-y-0">
-              {sessions.map((session, index) => {
-                const prevSession = sessions[index + 1]
-                const change = prevSession && prevSession.overall_score && session.overall_score
-                  ? session.overall_score - prevSession.overall_score
-                  : null
-
-                return (
-                  <Link key={session.id} href={`/analysis/${session.id}`}>
-                    <div className="group flex items-center justify-between py-4 border-b border-[var(--line-default)] hover:border-[var(--accent)]/30 transition-sharp cursor-pointer">
-                      <div className="flex items-center gap-6">
-                        <span className="font-mono text-2xl font-bold text-[var(--text-primary)] w-16">
-                          {session.overall_score}
-                        </span>
-                        <div>
-                          <div className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-sharp">
-                            {session.title}
-                          </div>
-                          <div className="text-[10px] tracking-wider text-[var(--text-muted)] uppercase">
-                            {formatDate(session.session_date)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4">
-                        {change !== null && (
-                          <span className={`flex items-center gap-1 text-sm ${
-                            change > 0 ? 'text-[var(--positive)]' : 
-                            change < 0 ? 'text-[var(--negative)]' : 
-                            'text-[var(--text-muted)]'
-                          }`}>
-                            {change > 0 ? <ArrowUpRight className="w-4 h-4" /> : 
-                             change < 0 ? <ArrowDownRight className="w-4 h-4" /> : 
-                             <Minus className="w-4 h-4" />}
-                          </span>
-                        )}
-                        
-                        {session.model_version && (
-                          <span className="text-[10px] tracking-wider text-[var(--text-muted)]">
-                            v{session.model_version}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* 页脚 */}
-        <footer className="py-12 border-t border-[var(--line-default)]">
-          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-            <div className="text-[10px] tracking-wider text-[var(--text-muted)]">
-              ATHLETE INSIGHT // 表现控制台
-            </div>
-            <Link 
-              href="/analysis/new"
-              className="flex items-center gap-2 px-6 py-3 border border-[var(--accent)] text-[var(--accent)] text-sm tracking-wider uppercase hover:bg-[var(--accent)]/10 transition-sharp"
-            >
-              新建分析
-            </Link>
-          </div>
-        </footer>
       </main>
     </div>
   )
 }
 
-// 计算趋势分析
-function calculateTrendAnalysis(sessions: AnalysisSession[]): TrendAnalysis | null {
-  if (sessions.length < 2) return null
+function MetricCard({ label, value, note, accent = false }: { label: string; value: string; note: string; accent?: boolean }) {
+  return (
+    <div className="metric-card">
+      <div className="eyebrow">{label}</div>
+      <div className={`mt-3 text-3xl font-semibold tracking-[-0.04em] ${accent ? "text-[var(--accent)]" : "text-[var(--text-primary)]"}`}>{value}</div>
+      <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{note}</p>
+    </div>
+  )
+}
 
-  const scores = sessions.map(s => s.overall_score || 0)
-  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length
-  const bestScore = Math.max(...scores)
-  const worstScore = Math.min(...scores)
-  
-  const variance = scores.reduce((acc, score) => acc + Math.pow(score - avgScore, 2), 0) / scores.length
-  const volatility = Math.sqrt(variance)
-  
-  const firstHalf = scores.slice(0, Math.ceil(scores.length / 2))
-  const secondHalf = scores.slice(Math.floor(scores.length / 2))
-  const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
-  const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
-  
-  let direction: TrendAnalysis["long_term_trend"]["direction"]
-  if (volatility > 15) direction = "fluctuating"
-  else if (secondAvg > firstAvg + 3) direction = "improving"
-  else if (secondAvg < firstAvg - 3) direction = "declining"
-  else direction = "stable"
+function StatusCell({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-secondary)_86%,transparent)] p-4">
+      <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-[var(--text-primary)]">{value}</div>
+    </div>
+  )
+}
 
-  const latest = sessions[0]
-  const previous = sessions[1]
-  const scoreChange = (latest.overall_score || 0) - (previous.overall_score || 0)
-  
-  const significantChanges: TrendAnalysis["vs_previous"]["significant_changes"] = []
-  
-  const latestSubs = latest.report_json?.overview.sub_scores
-  const prevSubs = previous.report_json?.overview.sub_scores
-  
-  if (latestSubs && prevSubs) {
-    const comparisons: Array<[keyof typeof latestSubs, string]> = [
-      ["scoring_contribution", "得分贡献"],
-      ["error_control", "失误控制"],
-      ["stability", "稳定性"],
-      ["clutch_performance", "关键分"],
-    ]
-    
-    comparisons.forEach(([key, label]) => {
-      const change = latestSubs[key] - prevSubs[key]
-      if (Math.abs(change) >= 5) {
-        significantChanges.push({
-          metric: label,
-          previous: prevSubs[key],
-          current: latestSubs[key],
-          change_percent: (change / prevSubs[key]) * 100,
-        })
-      }
-    })
-  }
+function InsightCard({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-secondary)_85%,transparent)] p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+        <BarChart3 className="h-4 w-4 text-[var(--accent)]" />
+        {title}
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</p>
+    </div>
+  )
+}
 
-  const allTags = sessions.flatMap(s => s.report_json?.tags || [])
-  const tagCounts: Record<string, number[]> = {}
-  
-  allTags.forEach((tag, idx) => {
-    if (!tagCounts[tag]) tagCounts[tag] = []
-    tagCounts[tag].push(idx)
-  })
-  
-  const topIssues = Object.entries(tagCounts)
-    .map(([tag, occurrences]) => {
-      const firstHalfCount = occurrences.filter(i => i < sessions.length / 2).length
-      const secondHalfCount = occurrences.filter(i => i >= sessions.length / 2).length
-      
-      let trend: TrendAnalysis["top_issues"][0]["trend"]
-      if (secondHalfCount < firstHalfCount) trend = "improving"
-      else if (secondHalfCount > firstHalfCount) trend = "worsening"
-      else trend = "stable"
-      
-      return { tag, occurrence_count: occurrences.length, trend }
-    })
-    .sort((a, b) => b.occurrence_count - a.occurrence_count)
-    .slice(0, 3)
-
-  const subScoreCategories: Array<[keyof import("@/types").SubScores, string]> = [
-    ["scoring_contribution", "scoring_contribution"],
-    ["error_control", "error_control"],
-    ["stability", "stability"],
-    ["clutch_performance", "clutch_performance"],
-  ]
-  
-  const topStrengths = subScoreCategories
-    .map(([key, label]) => {
-      const values = sessions
-        .map(s => s.report_json?.overview.sub_scores?.[key])
-        .filter((v): v is number => v !== undefined)
-      
-      if (values.length === 0) return null
-      
-      const avg = values.reduce((a, b) => a + b, 0) / values.length
-      const variance = values.reduce((acc, v) => acc + Math.pow(v - avg, 2), 0) / values.length
-      
-      return {
-        category: label,
-        average_score: avg,
-        consistency: variance < 50 ? "high" : "medium" as "high" | "medium",
-      }
-    })
-    .filter((s): s is NonNullable<typeof s> => s !== null && s.average_score >= 65)
-    .sort((a, b) => b.average_score - a.average_score)
-    .slice(0, 3)
-
-  return {
-    vs_previous: {
-      score_change: scoreChange,
-      direction: scoreChange > 3 ? "up" : scoreChange < -3 ? "down" : "flat",
-      significant_changes: significantChanges,
-    },
-    top_issues: topIssues,
-    top_strengths: topStrengths,
-    long_term_trend: {
-      direction,
-      volatility: volatility / 100,
-      avg_score: avgScore,
-      best_score: bestScore,
-      worst_score: worstScore,
-    },
-  }
+function DebugCell({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-secondary)_86%,transparent)] p-4">
+      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+        {accent ? <Layers3 className="h-3.5 w-3.5 text-[var(--accent)]" /> : null}
+        {label}
+      </div>
+      <div className="mt-2 text-sm font-medium">{value}</div>
+    </div>
+  )
 }

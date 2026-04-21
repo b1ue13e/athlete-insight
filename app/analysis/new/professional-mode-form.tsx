@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils"
 import { ProfessionalVolleyballForm, simplifiedRatingLabels, participationLabels, matchImportanceLabels, opponentStrengthLabels, clutchRatingOptions, receptionRatingOptions, VolleyballPosition } from "@/types/input"
 import { AthleteProfile } from "@/lib/athletes"
 import { generateReport } from "@/lib/report-engine"
+import { saveLegacyVolleyballSession } from "@/lib/analysis/session-store"
+import { getCurrentUser } from "@/lib/supabase-client"
+import { saveLegacyDiagnosisReport } from "@/lib/analysis/store"
 import { errorTagOptions, errorTagCategoryLabels } from "@/types/errors"
 
 type SimplifiedRating = "excellent" | "good" | "average" | "poor" | "very_poor"
@@ -98,6 +101,14 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
       })
       localStorage.setItem("athlete_reports", JSON.stringify(reports))
       localStorage.setItem(`report_${report.id}`, JSON.stringify(report))
+      const currentUser = await getCurrentUser()
+      const sessionResult = await saveLegacyVolleyballSession({
+        userId: currentUser?.id,
+        athlete,
+        rawInput: input,
+        report,
+      })
+      await saveLegacyDiagnosisReport(report, currentUser?.id, sessionResult.id)
       
       // 导航到报告页
       router.push(`/analysis/${report.id}`)

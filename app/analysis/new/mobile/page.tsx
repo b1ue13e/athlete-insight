@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, ChevronLeft, Save, WifiOff, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AthleteProfile, getAthletes, getCurrentAthlete, setCurrentAthlete } from "@/lib/athletes"
+import { AthleteProfile, listAthletes, resolveCurrentAthlete, setCurrentAthlete } from "@/lib/athletes"
 import { generateReport } from "@/lib/report-engine"
+import { saveLegacyVolleyballSession } from "@/lib/analysis/session-store"
+import { getCurrentUser } from "@/lib/supabase-client"
+import { saveLegacyDiagnosisReport } from "@/lib/analysis/store"
 import { OfflineStorage, DraftData } from "@/lib/offline-storage"
 import { DraftRecoveryModal, SyncStatusIndicator } from "@/components/offline/draft-recovery"
 
@@ -55,13 +58,15 @@ export default function MobileAnalysisPage() {
     window.addEventListener("offline", handleOffline)
     
     // 加载运动员
-    setAthletes(getAthletes())
-    const current = getCurrentAthlete()
-    if (current) {
-      setSelectedAthlete(current)
-      // 检查是否有草稿
-      checkDraft(current.id)
-    }
+    void getCurrentUser().then((currentUser) => {
+      void listAthletes(currentUser?.id).then((nextAthletes) => setAthletes(nextAthletes))
+      void resolveCurrentAthlete(currentUser?.id).then((current) => {
+        if (current) {
+          setSelectedAthlete(current)
+          void checkDraft(current.id)
+        }
+      })
+    })
     
     // 初始化 IndexedDB
     OfflineStorage.init()
@@ -152,6 +157,14 @@ export default function MobileAnalysisPage() {
       status: "pending",
       retryCount: 0,
     })
+    const currentUser = await getCurrentUser()
+    const sessionResult = await saveLegacyVolleyballSession({
+      userId: currentUser?.id,
+      athlete: selectedAthlete,
+      rawInput: input,
+      report,
+    })
+    await saveLegacyDiagnosisReport(report, currentUser?.id, sessionResult.id)
     
     // 尝试同步
     if (navigator.onLine) {

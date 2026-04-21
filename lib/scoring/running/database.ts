@@ -1,4 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { getAthleteById } from "../../athletes"
+import { getAnalysisSessionById, getAnalysisSessions, saveRunningAnalysisSession, updateAnalysisSessionStatus, type AnalysisSessionRecord } from "../../analysis/session-store"
 import type { RunningScoreReport, RunningSessionInput, WeeklyTrainingBlock } from "./schemas"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -104,122 +106,45 @@ export async function saveRunningSession(
   input: RunningSessionInput,
   report: RunningScoreReport
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  try {
-    if (canUseLocalFallback()) {
-      const id = `local-running-${Date.now()}`
-      const items = readLocalCollection<DatabaseRunningSession>(LOCAL_RUNNING_SESSIONS_KEY)
-      const record: DatabaseRunningSession = {
-        id,
-        athlete_id: athleteId,
-        user_id: userId,
-        sport_type: "running",
-        title: `${input.trainingType} run`,
-        session_date: new Date(input.date).toISOString().slice(0, 10),
-        status: "completed",
-        input_method: input.source,
-        raw_input: input,
-        overall_score: report.scoreBreakdown.final.score,
-        report_json: report,
-        summary_text: buildSummaryText(report),
-        model_version: report.version,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      writeLocalCollection(LOCAL_RUNNING_SESSIONS_KEY, [record, ...items])
-      return { success: true, id }
-    }
-
-    const client = getClient()
-    const { data, error } = await client
-      .from("analysis_sessions")
-      .insert({
-        user_id: userId,
-        athlete_id: athleteId,
-        sport_type: "running",
-        title: `${input.trainingType} run`,
-        session_date: new Date(input.date).toISOString().slice(0, 10),
-        status: "completed",
-        input_method: input.source,
-        raw_input: input,
-        overall_score: report.scoreBreakdown.final.score,
-        report_json: report,
-        summary_text: buildSummaryText(report),
-        model_version: report.version,
-      })
-      .select("id")
-      .single()
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-
-    return { success: true, id: data?.id }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to save running session",
-    }
+  const athlete = getAthleteById(athleteId)
+  if (!athlete) {
+    return { success: false, error: "Athlete not found" }
   }
+
+  return saveRunningAnalysisSession({
+    userId,
+    athlete,
+    input,
+    report,
+  })
 }
 
 export async function getRunningSessions(
   userId: string,
   options: { athleteId?: string; limit?: number } = {}
 ): Promise<{ success: boolean; sessions?: DatabaseRunningSession[]; error?: string }> {
-  try {
-    if (canUseLocalFallback()) {
-      const items = readLocalCollection<DatabaseRunningSession>(LOCAL_RUNNING_SESSIONS_KEY)
-        .filter((item) => item.user_id === userId)
-        .filter((item) => (options.athleteId ? item.athlete_id === options.athleteId : true))
-        .sort((left, right) => new Date(right.session_date).getTime() - new Date(left.session_date).getTime())
-        .slice(0, options.limit ?? 20)
+  const result = await getAnalysisSessions({
+    userId,
+    athleteId: options.athleteId,
+    sportType: "running",
+    limit: options.limit ?? 20,
+  })
 
-      return { success: true, sessions: items }
-    }
-
-    let query = getClient()
-      .from("analysis_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("sport_type", "running")
-
-    if (options.athleteId) {
-      query = query.eq("athlete_id", options.athleteId)
-    }
-
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(options.limit ?? 20)
-    if (error) return { success: false, error: error.message }
-    return { success: true, sessions: (data ?? []) as DatabaseRunningSession[] }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch running sessions",
-    }
+  return {
+    success: result.success,
+    sessions: (result.sessions as DatabaseRunningSession[]) ?? undefined,
+    error: result.error,
   }
 }
 
 export async function getRunningSession(
   sessionId: string
 ): Promise<{ success: boolean; session?: DatabaseRunningSession; error?: string }> {
-  try {
-    if (canUseLocalFallback()) {
-      const session = readLocalCollection<DatabaseRunningSession>(LOCAL_RUNNING_SESSIONS_KEY).find((item) => item.id === sessionId)
-      return session ? { success: true, session } : { success: false, error: "Running session not found" }
-    }
-
-    const { data, error } = await getClient()
-      .from("analysis_sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .single()
-
-    if (error) return { success: false, error: error.message }
-    return { success: true, session: data as DatabaseRunningSession }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to fetch running session",
-    }
+  const result = await getAnalysisSessionById(sessionId)
+  return {
+    success: result.success,
+    session: result.session as DatabaseRunningSession | undefined,
+    error: result.error,
   }
 }
 
@@ -227,35 +152,7 @@ export async function updateSessionStatus(
   sessionId: string,
   status: DatabaseRunningSession["status"]
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (canUseLocalFallback()) {
-      const items = readLocalCollection<DatabaseRunningSession>(LOCAL_RUNNING_SESSIONS_KEY)
-      const nextItems = items.map((item) =>
-        item.id === sessionId
-          ? {
-              ...item,
-              status,
-              updated_at: new Date().toISOString(),
-            }
-          : item
-      )
-      writeLocalCollection(LOCAL_RUNNING_SESSIONS_KEY, nextItems)
-      return { success: true }
-    }
-
-    const { error } = await getClient()
-      .from("analysis_sessions")
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", sessionId)
-
-    if (error) return { success: false, error: error.message }
-    return { success: true }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to update running session",
-    }
-  }
+  return updateAnalysisSessionStatus(sessionId, status)
 }
 
 export async function saveWeeklyBlock(
