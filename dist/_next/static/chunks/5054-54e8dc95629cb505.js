@@ -1,0 +1,66 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[5054],{62898:function(e,t,r){"use strict";r.d(t,{Z:function(){return i}});var a=r(2265),n={xmlns:"http://www.w3.org/2000/svg",width:24,height:24,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let s=e=>e.replace(/([a-z0-9])([A-Z])/g,"$1-$2").toLowerCase().trim(),i=(e,t)=>{let r=(0,a.forwardRef)(({color:r="currentColor",size:i=24,strokeWidth:l=2,absoluteStrokeWidth:c,className:d="",children:o,...x},h)=>(0,a.createElement)("svg",{ref:h,...n,width:i,height:i,stroke:r,strokeWidth:c?24*Number(l)/Number(i):l,className:["lucide",`lucide-${s(e)}`,d].join(" "),...x},[...t.map(([e,t])=>(0,a.createElement)(e,t)),...Array.isArray(o)?o:[o]]));return r.displayName=`${e}`,r}},90998:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Activity",[["path",{d:"M22 12h-4l-3 9L9 3l-3 9H2",key:"d5dnw9"}]])},17158:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("ChevronRight",[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]])},67842:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Dumbbell",[["path",{d:"m6.5 6.5 11 11",key:"f7oqzb"}],["path",{d:"m21 21-1-1",key:"cpc6if"}],["path",{d:"m3 3 1 1",key:"d3rpuf"}],["path",{d:"m18 22 4-4",key:"1e32o6"}],["path",{d:"m2 6 4-4",key:"189tqz"}],["path",{d:"m3 10 7-7",key:"1bxui2"}],["path",{d:"m14 21 7-7",key:"16x78n"}]])},38244:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("History",[["path",{d:"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",key:"1357e3"}],["path",{d:"M3 3v5h5",key:"1xhq8a"}],["path",{d:"M12 7v5l4 2",key:"1fdv2h"}]])},25119:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("LayoutDashboard",[["rect",{width:"7",height:"9",x:"3",y:"3",rx:"1",key:"10lvy0"}],["rect",{width:"7",height:"5",x:"14",y:"3",rx:"1",key:"16une8"}],["rect",{width:"7",height:"9",x:"14",y:"12",rx:"1",key:"1hutg5"}],["rect",{width:"7",height:"5",x:"3",y:"16",rx:"1",key:"ldoo1y"}]])},65883:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("LogOut",[["path",{d:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4",key:"1uf3rs"}],["polyline",{points:"16 17 21 12 16 7",key:"1gabdz"}],["line",{x1:"21",x2:"9",y1:"12",y2:"12",key:"1uyos4"}]])},68004:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Menu",[["line",{x1:"4",x2:"20",y1:"12",y2:"12",key:"1e0a9i"}],["line",{x1:"4",x2:"20",y1:"6",y2:"6",key:"1owob3"}],["line",{x1:"4",x2:"20",y1:"18",y2:"18",key:"yk5zj1"}]])},5505:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Settings2",[["path",{d:"M20 7h-9",key:"3s1dr2"}],["path",{d:"M14 17H5",key:"gfn3mx"}],["circle",{cx:"17",cy:"17",r:"3",key:"18b49y"}],["circle",{cx:"7",cy:"7",r:"3",key:"dfmy0x"}]])},8957:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Trophy",[["path",{d:"M6 9H4.5a2.5 2.5 0 0 1 0-5H6",key:"17hqa7"}],["path",{d:"M18 9h1.5a2.5 2.5 0 0 0 0-5H18",key:"lmptdp"}],["path",{d:"M4 22h16",key:"57wxv0"}],["path",{d:"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22",key:"1nw9bq"}],["path",{d:"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22",key:"1np0yb"}],["path",{d:"M18 2H6v7a6 6 0 0 0 12 0V2Z",key:"u46fv3"}]])},74527:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("UserPlus",[["path",{d:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",key:"1yyitq"}],["circle",{cx:"9",cy:"7",r:"4",key:"nufk8"}],["line",{x1:"19",x2:"19",y1:"8",y2:"14",key:"1bvyxn"}],["line",{x1:"22",x2:"16",y1:"11",y2:"11",key:"1shjgl"}]])},25750:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("Users",[["path",{d:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",key:"1yyitq"}],["circle",{cx:"9",cy:"7",r:"4",key:"nufk8"}],["path",{d:"M22 21v-2a4 4 0 0 0-3-3.87",key:"kshegd"}],["path",{d:"M16 3.13a4 4 0 0 1 0 7.75",key:"1da9ce"}]])},82549:function(e,t,r){"use strict";r.d(t,{Z:function(){return a}});/**
+ * @license lucide-react v0.303.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let a=(0,r(62898).Z)("X",[["path",{d:"M18 6 6 18",key:"1bl5f8"}],["path",{d:"m6 6 12 12",key:"d8bk6v"}]])},76014:function(e,t,r){"use strict";r.d(t,{C:function(){return C}});var a=r(57437),n=r(2265),s=r(61396),i=r.n(s),l=r(24033),c=r(25119),d=r(74527),o=r(25750),x=r(38244),h=r(5505),u=r(90998),m=r(67842),y=r(8957),p=r(17158),f=r(65883),v=r(82549),b=r(68004),g=r(88333),k=r(1657);let j=[{href:"/",label:"工作台",icon:c.Z},{href:"/analysis/new",label:"新建诊断",icon:d.Z},{href:"/athletes",label:"运动员",icon:o.Z},{href:"/history",label:"历史记录",icon:x.Z},{href:"/settings",label:"设置",icon:h.Z}],N=[{href:"/analysis/new/running",label:"跑步诊断",icon:u.Z},{href:"/analysis/new/gym",label:"健身诊断",icon:m.Z},{href:"/analysis/new",label:"排球诊断",icon:y.Z}];function w(e,t){return"/"===t?"/"===e:e===t||e.startsWith("".concat(t,"/"))}function Z(e){let{href:t,label:r,icon:n,active:s,onNavigate:l}=e;return(0,a.jsxs)(i(),{href:t,onClick:l,className:(0,k.cn)("group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition-sharp",s?"border-[var(--line-strong)] bg-[var(--bg-tertiary)] text-[var(--accent)]":"border-transparent text-[var(--text-secondary)] hover:border-[var(--line-default)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"),children:[(0,a.jsx)(n,{className:"h-4 w-4"}),(0,a.jsx)("span",{children:r}),(0,a.jsx)(p.Z,{className:(0,k.cn)("ml-auto h-4 w-4 transition-sharp",s?"text-[var(--accent)]":"text-[var(--text-muted)] group-hover:text-[var(--text-primary)]")})]})}function M(e){let{pathname:t,onNavigate:r}=e,{user:n,isAuthenticated:s,logout:l}=(0,g.useAuth)();return(0,a.jsxs)("div",{className:"flex h-full flex-col",children:[(0,a.jsx)("div",{className:"border-b border-[var(--line-default)] px-4 py-5",children:(0,a.jsxs)(i(),{href:"/",onClick:r,className:"flex items-center gap-3",children:[(0,a.jsx)("div",{className:"flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line-strong)] bg-[var(--bg-tertiary)] text-[var(--accent)]",children:(0,a.jsx)(u.Z,{className:"h-4 w-4"})}),(0,a.jsxs)("div",{children:[(0,a.jsx)("div",{className:"text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--text-secondary)]",children:"Athlete Insight"}),(0,a.jsx)("div",{className:"text-base font-semibold text-[var(--text-primary)]",children:"训练诊断工作台"})]})]})}),(0,a.jsxs)("div",{className:"flex-1 overflow-y-auto px-3 py-4",children:[(0,a.jsx)("div",{className:"space-y-1.5",children:j.map(e=>(0,a.jsx)(Z,{href:e.href,label:e.label,icon:e.icon,active:w(t,e.href),onNavigate:r},e.href))}),(0,a.jsxs)("div",{className:"mt-6 border-t border-[var(--line-default)] pt-5",children:[(0,a.jsx)("div",{className:"px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--text-muted)]",children:"快速诊断"}),(0,a.jsx)("div",{className:"mt-3 space-y-1.5",children:N.map(e=>(0,a.jsx)(Z,{href:e.href,label:e.label,icon:e.icon,active:w(t,e.href),onNavigate:r},e.href))})]})]}),(0,a.jsxs)("div",{className:"border-t border-[var(--line-default)] px-4 py-4",children:[(0,a.jsxs)("div",{className:"flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]",children:[(0,a.jsx)("span",{className:(0,k.cn)("h-2 w-2 rounded-full",s?"bg-[var(--accent)]":"bg-[var(--text-muted)]")}),s?"账号在线":"本地模式"]}),(0,a.jsx)("div",{className:"mt-2 text-sm text-[var(--text-secondary)]",children:(null==n?void 0:n.displayName)||(null==n?void 0:n.email)||"未登录，可本地保存"}),s?(0,a.jsxs)("button",{type:"button",onClick:()=>{l(),null==r||r()},className:"mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--line-default)] bg-[var(--bg-secondary)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition-sharp hover:border-[var(--line-strong)] hover:text-[var(--text-primary)]",children:[(0,a.jsx)(f.Z,{className:"h-4 w-4"}),"退出登录"]}):(0,a.jsx)(i(),{href:"/auth/login",onClick:r,className:"action-secondary mt-4 w-full text-sm",children:"登录并同步"})]})]})}function C(e){let{title:t,subtitle:r,eyebrow:s="Training diagnosis workspace",actions:i,children:c}=e,d=(0,l.usePathname)(),[o,x]=(0,n.useState)(!1);return(0,a.jsx)("div",{className:"min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]",children:(0,a.jsxs)("div",{className:"lg:grid lg:min-h-screen lg:grid-cols-[248px_minmax(0,1fr)]",children:[(0,a.jsx)("aside",{className:"hidden border-r border-[var(--line-default)] bg-[var(--bg-secondary)] lg:flex lg:min-h-screen lg:flex-col",children:(0,a.jsx)(M,{pathname:d})}),o?(0,a.jsxs)("div",{className:"fixed inset-0 z-50 lg:hidden",children:[(0,a.jsx)("button",{type:"button","aria-label":"关闭导航",onClick:()=>x(!1),className:"absolute inset-0 bg-black/70"}),(0,a.jsxs)("aside",{className:"relative z-10 h-full w-[min(92vw,320px)] border-r border-[var(--line-default)] bg-[var(--bg-secondary)]",children:[(0,a.jsxs)("div",{className:"flex items-center justify-between border-b border-[var(--line-default)] px-4 py-4",children:[(0,a.jsx)("div",{className:"text-sm font-semibold text-[var(--text-primary)]",children:"导航"}),(0,a.jsx)("button",{type:"button",onClick:()=>x(!1),className:"flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--line-default)] text-[var(--text-secondary)] transition-sharp hover:text-[var(--text-primary)]",children:(0,a.jsx)(v.Z,{className:"h-4 w-4"})})]}),(0,a.jsx)(M,{pathname:d,onNavigate:()=>x(!1)})]})]}):null,(0,a.jsxs)("div",{className:"min-w-0",children:[(0,a.jsxs)("header",{className:"sticky top-0 z-40 border-b border-[var(--line-default)] bg-[color-mix(in_oklch,var(--bg-primary)_92%,transparent)] backdrop-blur-xl",children:[(0,a.jsxs)("div",{className:"flex min-h-16 items-center gap-3 px-4 py-3 lg:px-6",children:[(0,a.jsx)("button",{type:"button",onClick:()=>x(!0),className:"flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--line-default)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-sharp hover:text-[var(--text-primary)] lg:hidden",children:(0,a.jsx)(b.Z,{className:"h-4 w-4"})}),(0,a.jsxs)("div",{className:"min-w-0 flex-1",children:[(0,a.jsx)("div",{className:"truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]",children:s}),(0,a.jsx)("div",{className:"truncate text-xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]",children:t}),r?(0,a.jsx)("div",{className:"truncate text-xs text-[var(--text-secondary)]",children:r}):null]}),i?(0,a.jsx)("div",{className:"hidden items-center gap-3 md:flex",children:i}):null]}),i?(0,a.jsx)("div",{className:"flex flex-wrap gap-3 border-t border-[var(--line-default)] px-4 py-3 md:hidden",children:i}):null]}),(0,a.jsx)("main",{className:"px-4 py-4 lg:px-6 lg:py-6",children:c})]})]})})}},99605:function(e,t,r){"use strict";function a(e){return"/analysis/detail?id=".concat(encodeURIComponent(e))}r.d(t,{Y:function(){return a}})},24033:function(e,t,r){e.exports=r(15313)}}]);

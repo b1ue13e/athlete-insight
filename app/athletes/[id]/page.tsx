@@ -1,4 +1,4 @@
-import { AthleteDetailPageClient } from "./page-client"
+import { AthleteDetailPageClient } from "../athlete-detail-client"
 
 export function generateStaticParams() {
   return [{ id: "sample" }]
@@ -7,3 +7,4 @@ export function generateStaticParams() {
 export default function AthleteDetailPage({ params }: { params: { id: string } }) {
   return <AthleteDetailPageClient id={params.id} />
 }
+

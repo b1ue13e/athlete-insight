@@ -1,191 +1,213 @@
 # 正式部署准备
 
 ## 目标
-让测试用户真正能用，不是"上线"，而是为验证做准备。
+
+让测试用户真正可用，而不是“只是能上线”。
 
 ---
 
-## 检查清单
+## 部署前检查清单
 
-### 1. 域名 & HTTPS
-- [ ] 购买域名（建议：athleteinsight.app 或类似）
-- [ ] 配置 Vercel 自定义域名
-- [ ] 确认 HTTPS 自动启用
+### 1. 域名与 HTTPS
 
-### 2. 环境配置
+- [ ] 已绑定正式域名
+- [ ] 已在 Vercel 配置自定义域名
+- [ ] 已确认 HTTPS 正常启用
+
+### 2. 环境变量
+
 ```bash
-# 生产环境变量 .env.production
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 NEXT_PUBLIC_API_URL=https://yourdomain.com/api
 ```
 
 ### 3. PWA 验证
-- [ ] Android Chrome 安装测试
-- [ ] iOS Safari 安装测试
-- [ ] 离线页面正常显示
-- [ ] 图标正确显示
 
-### 4. 错误监控
-- [ ] Vercel Analytics 启用
-- [ ] 错误日志收集
+- [ ] Android Chrome 安装测试通过
+- [ ] iOS Safari 安装测试通过
+- [ ] 离线页可正常显示
+- [ ] 图标与主题色正常
 
-### 5. 埋点上线
-- [ ] analytics.ts 在生产环境正常工作
-- [ ] 数据写入本地 IndexedDB
-- [ ] 后续接入后端时数据不丢失
+### 4. 数据与监控
+
+- [ ] 本地 IndexedDB 正常写入
+- [ ] Vercel Analytics 已启用
+- [ ] 错误日志已可查看
+
+### 5. 路由与入口
+
+- [ ] 唯一正式诊断入口为 `/analysis/new`
+- [ ] 项目内不再引用旧入口
+- [ ] Vercel redirect 已覆盖历史地址
 
 ---
 
-## 部署步骤
+## 基础部署步骤
 
-### Step 1: Vercel 配置
+### Step 1: Vercel 项目配置
+
 1. 连接 GitHub 仓库
 2. 配置环境变量
-3. 设置自定义域名
+3. 配置域名
 4. 启用 HTTPS
 
-### Step 2: 域名配置
-```
-# Vercel 提供的 DNS 记录
+### Step 2: 域名解析
+
+```txt
 A     @     76.76.21.21
 CNAME www   cname.vercel-dns.com
 ```
 
-### Step 3: 验证
+### Step 3: 线上验证
+
 ```bash
-# 检查 HTTPS
 curl -I https://yourdomain.com
-
-# 检查 PWA manifest
 curl https://yourdomain.com/manifest.json
-
-# 检查 Service Worker
 curl https://yourdomain.com/sw.js
 ```
 
 ---
 
-## 轻登录方案
+## Vercel redirect 变更流程
 
-### 选定：Magic Link（最轻）
+用于处理历史路由下线、正式入口收口、以及避免旧路径重新回流。
 
-**用户体验**:
-1. 输入邮箱
-2. 收到邮件，点击链接
-3. 自动登录
+### 适用场景
 
-**不需要**:
-- 密码
-- 注册表单
-- 邮箱验证
-- 找回密码
+当你需要：
 
-**技术实现**:
-- 暂时用本地存储模拟（测试阶段）
-- 后续接 Supabase Auth（生产阶段）
+- 删除旧页面路由
+- 把多个入口收口到一个正式入口
+- 替换旧路径但不想让旧链接直接 404
 
----
+就应该走这一套流程。
 
-## 本地/云端数据合并规则
+### 标准步骤
 
-**优先级**（避免数据冲突）:
-1. 每条记录有稳定本地 ID（UUID）
-2. 登录后先"本地未同步数据上推"
-3. 云端已存在的记录（按ID查重）不重复插入
-4. 草稿和正式提交状态严格区分
-5. 冲突时以"最新更新时间"为准
+#### 1. 先确定正式入口
 
-**数据流程**:
-```
-离线录入 → IndexedDB → 联网 → 检查登录
-                               ↓
-                     已登录 → 同步到云端
-                     未登录 → 暂存本地，登录后上推
+先明确“唯一正式入口”是什么。
+
+当前项目基线：
+
+- 正式入口：`/analysis/new`
+
+#### 2. 清理应用层引用
+
+在改 redirect 前，先把项目内所有链接改到正式入口，避免代码继续把用户送回旧地址。
+
+建议搜索：
+
+```bash
+Get-ChildItem app,components,lib -Recurse -File |
+  Select-String -Pattern '/analysis/new/v2|/analysis/new/mobile|analysis/new\\?sport=|analysis/new\\?mode='
 ```
 
----
+确认：
 
-## 内部数据看板
+- [ ] `app/` 内无旧入口引用
+- [ ] `components/` 内无旧入口引用
+- [ ] `lib/` 内无旧入口引用
 
-### 每周必须看的指标
+#### 3. 删除应用层旧路由文件
 
-| 指标 | 目标线 | 低于线怎么办 |
-|------|--------|-------------|
-| 首次录入完成率 | > 70% | 检查哪一步退出最多 |
-| 平均快录时长 | < 180秒 | 简化步骤，减少输入 |
-| 第二次使用率 | > 50% | 加强提醒，优化回访 |
-| 分享率 | > 30% | 降低分享门槛 |
-| 补录率 | > 20% | 强调补录价值 |
-| 处方反馈率 | > 25% | 简化反馈流程 |
-| 7日留存 | > 40% | 分析流失原因 |
+如果旧入口不再需要，就直接删除对应页面文件，不保留“第二套 UI”。
 
-### 看板页面
-路径：`/admin/dashboard`（密码保护）
+例如当前项目已经删除：
 
-显示：
-- 本周活跃用户数
-- 总录入场次
-- 快录/补录占比
-- 漏斗图（开始→完成→分享→反馈）
-- 退出点分布
-- 平均录入时长趋势
+- `app/analysis/new/v2/page.tsx`
+- `app/analysis/new/mobile/page.tsx`
 
----
+#### 4. 在 `vercel.json` 中增加 redirect
 
-## 10用户测试准备
+在部署层为旧地址提供兼容跳转。
 
-### 用户分层
-| 类型 | 人数 | 特征 |
-|------|------|------|
-| 普通球员 | 5 | 偶尔录，不太规律 |
-| 自律用户 | 3 | 愿意连续录多场 |
-| 核心用户 | 2 | 队长/教练/懂球 |
+当前项目示例：
 
-### 测试群
-- 微信群（收反馈、截图）
-- 每周一次简短语音/文字回访
-
-### 反馈表（每场录完30秒）
-1. 这次录入顺不顺？（1-5分）
-2. 哪一步最烦？（选择题）
-3. 报告准不准？（1-5分）
-4. 建议有没有用？（1-5分）
-5. 下次还愿不愿意录？（是/否）
-
-### 每周内部板
-```
-Week X 周报
-================
-活跃: 8/10
-总场次: 23
-快录: 18 | 补录: 5
-分享: 7 | 反馈: 6
-
-主要问题:
-- 3人反馈第5步"关键分"不懂意思
-- 2人找不到历史报告入口
-
-下周动作:
-- 改"关键分"文案
-- 首页加"历史"快捷入口
+```json
+"redirects": [
+  {
+    "source": "/analysis/new/v2",
+    "destination": "/analysis/new",
+    "permanent": true
+  },
+  {
+    "source": "/analysis/new/v2/:path*",
+    "destination": "/analysis/new",
+    "permanent": true
+  },
+  {
+    "source": "/analysis/new/mobile",
+    "destination": "/analysis/new",
+    "permanent": true
+  },
+  {
+    "source": "/analysis/new/mobile/:path*",
+    "destination": "/analysis/new",
+    "permanent": true
+  }
+]
 ```
 
+#### 5. 本地验证构建
+
+```bash
+npm run typecheck
+npm run build
+```
+
+#### 6. 线上验证 redirect 行为
+
+部署后手动验证：
+
+- [ ] `/analysis/new/v2` 会跳到 `/analysis/new`
+- [ ] `/analysis/new/mobile` 会跳到 `/analysis/new`
+- [ ] 首页、离线页、详情页中的“新建诊断”都进入 `/analysis/new`
+
+### 变更原则
+
+- 先改内部引用，再改 redirect
+- 正式入口只能有一个
+- redirect 只做兼容，不应继续承载产品语义
+- 任何新增入口都必须先检查是否破坏正式入口基线
+
+### 配套检查
+
+每次改 redirect / rewrite 后，都同步检查：
+
+- `vercel.json`
+- `docs/redirects-checklist.md`
+- `README.md`
+- `PWA-SETUP.md`
+- `OFFLINE-DATA-SAFETY.md`
+
 ---
 
-## 现在不做的事
+## 登录与数据合并原则
 
-❌ 跑步/健身扩展  
-❌ 首页 UI 继续卷  
-❌ 会员体系  
-❌ 大模型润色  
-❌ 原生 App  
-❌ 复杂教练后台  
+### 轻登录方案
+
+建议优先使用 Magic Link。
+
+优点：
+
+- 不需要密码
+- 不需要复杂注册流程
+- 测试期阻力更低
+
+### 本地 / 云端合并规则
+
+1. 每条记录保留稳定本地 ID
+2. 登录后优先上推本地未同步数据
+3. 云端按 ID 去重
+4. 草稿与正式提交状态严格区分
+5. 冲突时以“最新更新时间”为准
 
 ---
 
-## 唯一目标
+## 推荐搭配文档
 
-> 两周内，让 10 个真实用户安装到手机上，并至少完成 2 次录入。
+部署路由治理时，请同时参考：
 
-成了 = 不是学生作品，开始具备产品生命力  
-没成 = 回头修产品链路，不继续加功能
+- `docs/redirects-checklist.md`
+

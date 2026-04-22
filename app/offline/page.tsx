@@ -26,7 +26,7 @@ export default function OfflinePage() {
         {/* 快捷操作 */}
         <div className="space-y-3 pt-4">
           <Link
-            href="/analysis/new/mobile"
+            href="/analysis/new"
             className="block w-full py-4 bg-[var(--accent)] text-[var(--bg-primary)] font-bold"
           >
             继续录入（离线可用）

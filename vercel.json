@@ -1,6 +1,29 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "redirects": [
+    {
+      "source": "/analysis/new/v2",
+      "destination": "/analysis/new",
+      "permanent": true
+    },
+    {
+      "source": "/analysis/new/v2/:path*",
+      "destination": "/analysis/new",
+      "permanent": true
+    },
+    {
+      "source": "/analysis/new/mobile",
+      "destination": "/analysis/new",
+      "permanent": true
+    },
+    {
+      "source": "/analysis/new/mobile/:path*",
+      "destination": "/analysis/new",
+      "permanent": true
+    }
+  ]
 }

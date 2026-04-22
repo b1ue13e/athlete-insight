@@ -9,6 +9,7 @@ import { generateReport } from "@/lib/report-engine"
 import { saveLegacyVolleyballSession } from "@/lib/analysis/session-store"
 import { getCurrentUser } from "@/lib/supabase-client"
 import { saveLegacyDiagnosisReport } from "@/lib/analysis/store"
+import { getAnalysisDetailHref } from "@/lib/analysis/routes"
 import { errorTagOptions, errorTagCategoryLabels } from "@/types/errors"
 
 type SimplifiedRating = "excellent" | "good" | "average" | "poor" | "very_poor"
@@ -111,7 +112,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
       await saveLegacyDiagnosisReport(report, currentUser?.id, sessionResult.id)
       
       // 导航到报告页
-      router.push(`/analysis/${report.id}`)
+      router.push(getAnalysisDetailHref(report.id))
     } catch (error) {
       console.error("Failed to generate report:", error)
       alert("生成报告失败，请重试")
@@ -121,36 +122,36 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="analysis-form space-y-6">
       {/* 比赛信息 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           比赛信息
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               比赛名称 *
             </label>
             <input
               type="text"
               value={form.matchName}
               onChange={(e) => setForm({ ...form, matchName: e.target.value })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="例如：联赛第3轮"
               required
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               对手（可选）
             </label>
             <input
               type="text"
               value={form.opponent}
               onChange={(e) => setForm({ ...form, opponent: e.target.value })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="对手名称"
             />
           </div>
@@ -158,24 +159,24 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               比赛日期
             </label>
             <input
               type="date"
               value={form.matchDate}
               onChange={(e) => setForm({ ...form, matchDate: e.target.value })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               位置
             </label>
             <select
               value={form.position}
               onChange={(e) => setForm({ ...form, position: e.target.value as VolleyballPosition })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="outside_hitter">主攻</option>
               <option value="middle_blocker">副攻</option>
@@ -189,19 +190,19 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 出场上下文 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           出场上下文
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               首发/替补
             </label>
             <select
               value={form.starterStatus}
               onChange={(e) => setForm({ ...form, starterStatus: e.target.value as StarterStatus })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="starter">首发打满</option>
               <option value="mid_game">首发部分</option>
@@ -209,13 +210,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               出场比例
             </label>
             <select
               value={form.participationLevel}
               onChange={(e) => setForm({ ...form, participationLevel: e.target.value as ParticipationLevel })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="100">全场（100%）</option>
               <option value="75">大部分（75%）</option>
@@ -227,13 +228,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               比赛重要性
             </label>
             <select
               value={form.matchImportance}
               onChange={(e) => setForm({ ...form, matchImportance: e.target.value as MatchImportance })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="training">训练赛</option>
               <option value="regular">常规赛</option>
@@ -242,13 +243,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               对手强度
             </label>
             <select
               value={form.opponentStrength}
               onChange={(e) => setForm({ ...form, opponentStrength: e.target.value as OpponentStrength })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="weak">较弱</option>
               <option value="average">相当</option>
@@ -261,13 +262,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 基础统计 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           基础统计
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               总得分
             </label>
             <input
@@ -275,12 +276,12 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.totalPoints || ""}
               onChange={(e) => setForm({ ...form, totalPoints: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               总失分（含失误）
             </label>
             <input
@@ -288,7 +289,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.totalPointsLost || ""}
               onChange={(e) => setForm({ ...form, totalPointsLost: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
@@ -297,13 +298,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 发球统计 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           发球
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               发球直接得分（ACE）
             </label>
             <input
@@ -311,12 +312,12 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.serveAces || ""}
               onChange={(e) => setForm({ ...form, serveAces: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               发球失误
             </label>
             <input
@@ -324,7 +325,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.serveErrors || ""}
               onChange={(e) => setForm({ ...form, serveErrors: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
@@ -333,13 +334,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 进攻统计 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           进攻
         </div>
         
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               进攻得分
             </label>
             <input
@@ -347,12 +348,12 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.attackKills || ""}
               onChange={(e) => setForm({ ...form, attackKills: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               进攻失误
             </label>
             <input
@@ -360,12 +361,12 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.attackErrors || ""}
               onChange={(e) => setForm({ ...form, attackErrors: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               被拦死
             </label>
             <input
@@ -373,7 +374,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.blockedTimes || ""}
               onChange={(e) => setForm({ ...form, blockedTimes: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
@@ -383,7 +384,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
       {/* 一传表现 - 支持两种输入方式 */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)]">
+          <div className="analysis-form-title">
             一传表现
           </div>
           <div className="flex gap-2">
@@ -416,7 +417,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
         
         {form.receptionInputMode === "precise" ? (
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               一传到位率（%）
             </label>
             <input
@@ -425,7 +426,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               max={100}
               value={form.receptionSuccessRate ?? ""}
               onChange={(e) => setForm({ ...form, receptionSuccessRate: e.target.value ? parseInt(e.target.value) : undefined })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="例如：65"
             />
             <p className="text-xs text-[var(--text-muted)] mt-2">
@@ -463,13 +464,13 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 拦网和防守 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           拦网与防守
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               拦网得分
             </label>
             <input
@@ -477,12 +478,12 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.blockPoints || ""}
               onChange={(e) => setForm({ ...form, blockPoints: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               防守起球
             </label>
             <input
@@ -490,7 +491,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               min={0}
               value={form.digs || ""}
               onChange={(e) => setForm({ ...form, digs: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
@@ -500,7 +501,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
       {/* 关键分表现 - 支持两种输入方式 */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)]">
+          <div className="analysis-form-title">
             关键分表现
           </div>
           <div className="flex gap-2">
@@ -533,7 +534,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
         
         {form.clutchInputMode === "precise" ? (
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               关键分表现评分（0-100）
             </label>
             <input
@@ -542,7 +543,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
               max={100}
               value={form.clutchPerformanceScore ?? ""}
               onChange={(e) => setForm({ ...form, clutchPerformanceScore: e.target.value ? parseInt(e.target.value) : undefined })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="例如：75"
             />
             <p className="text-xs text-[var(--text-muted)] mt-2">
@@ -580,7 +581,7 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 失误标签 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           失误类型标签（可选）
         </div>
         
@@ -617,24 +618,24 @@ export function ProfessionalModeForm({ athlete }: ProfessionalModeFormProps) {
 
       {/* 备注 */}
       <section>
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] mb-2">
+        <div className="analysis-form-label">
           其他备注（可选）
         </div>
         <textarea
           value={form.notes}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={3}
-          className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none resize-none"
+          className="analysis-textarea"
           placeholder="补充说明..."
         />
       </section>
 
       {/* 提交 */}
-      <div className="pt-8 border-t border-[var(--line-default)]">
+      <div className="analysis-footer">
         <button
           type="submit"
           disabled={isSubmitting || !form.matchName}
-          className="w-full py-4 bg-[var(--accent)] text-[var(--bg-primary)] font-bold tracking-wider uppercase hover:opacity-90 transition-sharp disabled:opacity-40 disabled:cursor-not-allowed"
+          className="action-primary w-full text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isSubmitting ? "生成报告中..." : "生成分析报告"}
         </button>

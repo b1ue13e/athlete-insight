@@ -9,6 +9,7 @@ import { generateReport } from "@/lib/report-engine"
 import { saveLegacyVolleyballSession } from "@/lib/analysis/session-store"
 import { getCurrentUser } from "@/lib/supabase-client"
 import { saveLegacyDiagnosisReport } from "@/lib/analysis/store"
+import { getAnalysisDetailHref } from "@/lib/analysis/routes"
 import { errorTagOptions, errorTagCategoryLabels } from "@/types/errors"
 
 type SimplifiedRating = "excellent" | "good" | "average" | "poor" | "very_poor"
@@ -102,7 +103,7 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
       await saveLegacyDiagnosisReport(report, currentUser?.id, sessionResult.id)
       
       // 导航到报告页
-      router.push(`/analysis/${report.id}`)
+      router.push(getAnalysisDetailHref(report.id))
     } catch (error) {
       console.error("Failed to generate report:", error)
       alert("生成报告失败，请重试")
@@ -152,69 +153,69 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="analysis-form space-y-6">
       {/* 比赛信息 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           比赛信息
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               比赛名称 *
             </label>
             <input
               type="text"
               value={form.matchName}
               onChange={(e) => setForm({ ...form, matchName: e.target.value })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="例如：联赛第3轮"
               required
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               对手（可选）
             </label>
             <input
               type="text"
               value={form.opponent}
               onChange={(e) => setForm({ ...form, opponent: e.target.value })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="对手名称"
             />
           </div>
         </div>
 
         <div>
-          <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+          <label className="analysis-form-label">
             比赛日期
           </label>
           <input
             type="date"
             value={form.matchDate}
             onChange={(e) => setForm({ ...form, matchDate: e.target.value })}
-            className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+            className="analysis-input"
           />
         </div>
       </section>
 
       {/* 出场上下文 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           出场上下文
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               首发/替补
             </label>
             <select
               value={form.starterStatus}
               onChange={(e) => setForm({ ...form, starterStatus: e.target.value as StarterStatus })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="starter">首发打满</option>
               <option value="mid_game">首发部分</option>
@@ -222,13 +223,13 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               出场比例
             </label>
             <select
               value={form.participationLevel}
               onChange={(e) => setForm({ ...form, participationLevel: e.target.value as ParticipationLevel })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="100">全场（100%）</option>
               <option value="75">大部分（75%）</option>
@@ -240,13 +241,13 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               比赛重要性
             </label>
             <select
               value={form.matchImportance}
               onChange={(e) => setForm({ ...form, matchImportance: e.target.value as MatchImportance })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="training">训练赛</option>
               <option value="regular">常规赛</option>
@@ -255,13 +256,13 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               对手强度
             </label>
             <select
               value={form.opponentStrength}
               onChange={(e) => setForm({ ...form, opponentStrength: e.target.value as OpponentStrength })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
             >
               <option value="weak">较弱</option>
               <option value="average">相当</option>
@@ -274,11 +275,11 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
       {/* 核心表现评估 */}
       <section className="space-y-6">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           核心表现评估
         </div>
         
-        <div className="p-4 border-l-2 border-[var(--accent)] bg-[var(--accent)]/5">
+        <div className="analysis-focus">
           <RatingSelector
             label="总体表现"
             value={form.overallPerformance}
@@ -320,13 +321,13 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
       {/* 关键数字 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           关键数字（必填）
         </div>
         
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               总得分
             </label>
             <input
@@ -334,12 +335,12 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
               min={0}
               value={form.pointsScored || ""}
               onChange={(e) => setForm({ ...form, pointsScored: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               总失分
             </label>
             <input
@@ -347,12 +348,12 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
               min={0}
               value={form.pointsLost || ""}
               onChange={(e) => setForm({ ...form, pointsLost: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
           <div>
-            <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+            <label className="analysis-form-label">
               重大失误
             </label>
             <input
@@ -360,7 +361,7 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
               min={0}
               value={form.majorErrors || ""}
               onChange={(e) => setForm({ ...form, majorErrors: parseInt(e.target.value) || 0 })}
-              className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+              className="analysis-input"
               placeholder="0"
             />
           </div>
@@ -369,32 +370,32 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
       {/* 主要观察 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           主要观察
         </div>
         
         <div>
-          <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+          <label className="analysis-form-label">
             主要优势（一句话）
           </label>
           <input
             type="text"
             value={form.topStrength}
             onChange={(e) => setForm({ ...form, topStrength: e.target.value })}
-            className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+            className="analysis-input"
             placeholder="例如：发球威胁大，连续ACE"
           />
         </div>
 
         <div>
-          <label className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] block mb-2">
+          <label className="analysis-form-label">
             主要问题（一句话）
           </label>
           <input
             type="text"
             value={form.topWeakness}
             onChange={(e) => setForm({ ...form, topWeakness: e.target.value })}
-            className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+            className="analysis-input"
             placeholder="例如：接发判断慢，到位率低"
           />
         </div>
@@ -402,7 +403,7 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
       {/* 失误标签 */}
       <section className="space-y-4">
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--accent)] mb-4">
+        <div className="analysis-form-title">
           失误类型标签（可选）
         </div>
         
@@ -439,24 +440,24 @@ export function QuickModeForm({ athlete }: QuickModeFormProps) {
 
       {/* 备注 */}
       <section>
-        <div className="text-[10px] tracking-[0.2em] uppercase text-[var(--text-muted)] mb-2">
+        <div className="analysis-form-label">
           其他备注（可选）
         </div>
         <textarea
           value={form.notes}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
           rows={3}
-          className="w-full bg-[var(--bg-secondary)] border border-[var(--line-default)] p-3 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none resize-none"
+          className="analysis-textarea"
           placeholder="补充说明..."
         />
       </section>
 
       {/* 提交 */}
-      <div className="pt-8 border-t border-[var(--line-default)]">
+      <div className="analysis-footer">
         <button
           type="submit"
           disabled={isSubmitting || !form.matchName}
-          className="w-full py-4 bg-[var(--accent)] text-[var(--bg-primary)] font-bold tracking-wider uppercase hover:opacity-90 transition-sharp disabled:opacity-40 disabled:cursor-not-allowed"
+          className="action-primary w-full text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isSubmitting ? "生成报告中..." : "生成分析报告"}
         </button>
